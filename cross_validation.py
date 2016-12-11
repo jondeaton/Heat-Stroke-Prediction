@@ -11,8 +11,11 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
+from sklearn.model_selection import StratifiedKFold
+from itertools import cycle
+from scipy import interp
 
-def get_fake_data(N=100, num_fts=20):
+def get_test_data(N=200, num_fts=20):
     positive_data = np.ones((N, 1 + num_fts))
     negative_data = np.zeros((N, 1 + num_fts))
     for i in range(1, 1 + num_fts):
@@ -28,9 +31,74 @@ def get_negative_data():
     pass
 
 def complete_missing_data(df):
-    pass
+    cols = pd.Index(['Case', 'Source (Paper)', 'Case ID', 'Died / recovered',
+                     'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications',
+                     'Eertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
+                     'Geographical location', 'Environmental temperature (C)',
+                     'Humidity 8am', 'Humidity noon', 'Humidity 8pm', 'Barometric Pressure',
+                     'Heat Index (HI)', 'Time of day', 'Time of year (month)',
+                     'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
+                     'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
+                     'Duration of abnormal temperature', 'Patient temperature',
+                     'Rectal temperature', 'Respiratory rate', 'Daily Ingested Water (L)',
+                     'Sweating', 'Skin rash',
+                     'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
+                     'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
+                     'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
+                     'Total serum protein (gm/100ml)', 'Serum albumin',
+                     'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
+                     'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content',
+                     'femoral arterial CO2 content', 'femoral venous oxygen content',
+                     'femoral venous CO2 content', 'Hemoglobin', 'Red blood cell count',
+                     'Hematocrit', 'Hyperpotassemia', 'White blood cell count',
+                     'Alkaline phosphatase', 'Platelets', 'Diarrhea', 'Bronchospasm', 'AST',
+                     'ALT', 'CPK', 'Pulmonary congestion', 'Muscle tone',
+                     'Initial treatment', 'Time of cooling'], dtype='object')
+
+    defaults = {'Case': 1, "Source (Paper)": "None", 'Case ID': 1, 'Died / recovered': 0,
+                'Time to death (hours)': 0, 'Heat stroke': 0, 'Mental state':0 , 'Complications': 0,
+                    'Eertional (1) vs classic (0)': 0, 'Dehydration':0 , 'Strenuous exercise':0,
+                     'Geographical location': "None", 'Environmental temperature (C)': 90,
+                     'Humidity 8am': 0.1, 'Humidity noon':0.1, 'Humidity 8pm':0.1, 'Barometric Pressure':24,
+                     'Heat Index (HI)': 0, 'Time of day', 'Time of year (month)',
+                     'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
+                     'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
+                     'Duration of abnormal temperature', 'Patient temperature',
+                     'Rectal temperature', 'Respiratory rate', 'Daily Ingested Water (L)',
+                     'Sweating', 'Skin rash',
+                     'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
+                     'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
+                     'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
+                     'Total serum protein (gm/100ml)', 'Serum albumin',
+                     'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
+                     'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content',
+                     'femoral arterial CO2 content', 'femoral venous oxygen content',
+                     'femoral venous CO2 content', 'Hemoglobin', 'Red blood cell count',
+                     'Hematocrit', 'Hyperpotassemia', 'White blood cell count',
+                     'Alkaline phosphatase', 'Platelets', 'Diarrhea', 'Bronchospasm', 'AST',
+                     'ALT', 'CPK', 'Pulmonary congestion', 'Muscle tone',
+                     'Initial treatment', 'Time of cooling'}
 
 
+
+
+def trim(df):
+    features = pd.Index(['Heat stroke', 'Eertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise'
+                        , 'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm', 'Barometric Pressure',
+                         'Heat Index (HI)', 'Time of day', 'Time of year (month)',
+                         'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
+                         'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
+                         'Duration of abnormal temperature', 'Patient temperature',
+                         'Rectal temperature', 'Respiratory rate', 'Daily Ingested Water (L)',
+                         'Sweating', 'Skin rash',
+                         'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
+                         'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
+                         'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
+                         'Total serum protein (gm/100ml)', 'Serum albumin',
+                         'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
+                         'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content'],
+                        dtype='object')
+    return df[features]
 
 def main():
     parser = argparse.ArgumentParser()
@@ -51,26 +119,49 @@ def main():
     neg_df = get_negative_data()
 
     # For testing
-    df = get_fake_data()
-
-    predictor = linear_model.LogisticRegression(C=1e5)
-    predictor.fit(df.drop('outcome', axis=1), df.outcome)
+    #df = get_test_data()
 
 
-    scores = cross_val_score(predictor, df.drop('outcome', axis=1), df.outcome, cv=5)
+    classifier = linear_model.LogisticRegression(C=1e5)
+    X = np.array(df.drop('outcome', axis=1))
+    y = np.array(df.outcome)
+    scores = cross_val_score(classifier, X, y, cv=5)
     print(scores)
 
     logger.info("Cross Validating...")
-    predicted = cross_val_predict(predictor, df.drop('outcome', axis=1), df.outcome, cv=5)
+    predicted = cross_val_predict(classifier, X, y, cv=5)
     print("Prediction Accuracy: %f" % metrics.accuracy_score(df.outcome, predicted))
     print("Scoring accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
-    fpr, tpr, thresholds = roc_curve(y[test], probas_[:, 1])
-    roc_auc = auc(fpr, tpr)
+    colors = cycle(['cyan', 'indigo', 'seagreen', 'yellow', 'blue', 'darkorange'])
+    lw = 2
 
+    N_fold = 6
+    fold = 0
+    mean_tpr = 0.0
+    mean_fpr = np.linspace(0, 1, 100)
 
-    plt.plot(fpr, tpr, lw=2, label='ROC Curve(area = %0.2f)' % roc_auc)
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='k', label='Chance')
+    cv = StratifiedKFold(n_splits=N_fold, shuffle=True)
+    for (train, test), color in zip(cv.split(X, y), colors):
+        probas = classifier.fit(X[train], y[train]).predict_proba(X[test])
+        fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
+        mean_tpr += interp(mean_fpr, fpr, tpr)
+        mean_tpr[0] = 0.0
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, lw=lw, color=color, label='ROC fold %d (area = %0.2f)' % (fold, roc_auc))
+        fold += 1
+
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=lw, color='k', label='Chance')
+    mean_tpr /= cv.get_n_splits(X, y)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    plt.plot(mean_fpr, mean_tpr, color='g', linestyle='--', label='Mean ROC (area = %0.2f)' % mean_auc, lw=lw)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver operating characteristic example')
+    plt.legend(loc="lower right")
     plt.show()
 
 if __name__ == '__main__':
