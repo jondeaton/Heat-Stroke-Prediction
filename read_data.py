@@ -6,19 +6,50 @@ This is a module used for reading and completing data
 """
 
 import string
+import logging
 import numpy as np
 import pandas as pd
 
-def get_filtered_data():
+logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Physiologically Normal Ranges
+defaults = {'Case': 1, "Source (Paper)":0, 'Case ID': 1,
+            'Geographical location': "None", 'Environmental temperature (C)': 90,
+            'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
+            'Heat Index (HI)': 0, 'Time of day': 12.00, 'Time of year (month)': 6,
+            'Age': 30, 'Weight': 140, 'BMI': 26.5, 'Nationality':'None',
+            'Patient temperature': 37,
+            'Rectal temperature': 37, 'Respiratory rate': 16, 'Daily Ingested Water (L)': 3.7,
+            'Sweating': 0.5, 'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': 1,
+            'Heart / Pulse rate (b/min)': 80, '(mean) Arterial blood pressure (mmHg)': 120,
+            'Systolic BP': 120, 'Diastolic BP': 80, 'Arterial oxygen saturation': 95,
+            'Total serum protein (gm/100ml)': 70, 'Serum albumin': 40, 'Blood Glucose (mg/100ml)': 150,
+            'Serum sodium (mmol/L)': 140, 'Serum potassium (mEq/L)': 4, 'Serum chloride (mEq/L)': 100,
+            'Haemoglobin (g/dl)': 14, 'Hematocrit': 42,  'White blood cell count (/mcL)': 5000,
+            'Platelets': 300000,  'Initial treatment': "None", 'Temperature cooled to (C)': 37}
+
+# Fields to fill with zero value
+fill_with_zero = ['Heat Stroke', 'Complications', 'Exrtional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise']
+fill_with_zero += ['Died / recovered', 'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications']
+fill_with_zero += ['Sex', 'Exposure to sun', 'Cardiovascular disease history','Sickle Cell Trait (SCT)']
+fill_with_zero += ['Skin rash', 'Hyperpotassemia', 'Diarrhea', 'Bronchospasm', 'Decrebrate convulsion', 'Hot/dry skin']
+fill_with_zero += ['Cerebellar ataxia', 'Myocardial infarction', 'Hepatic failure','Pulmonary congestion']
+fill_with_zero += ['Duration of abnormal temperature']
+
+# Fields to fill with the average of others
+fill_with_average = ['AST (U/I)', 'ALT (U/I)', 'CPK (U/I)']
+
+def get_filtered_data(excel_file="/Users/jonpdeaton/Google Drive/school/BIOE 141A/Heat_Stroke_Prediction/Literature_Data.xlsx"):
     """
     This function reads data from an excel file and ompleted missing data
     :return: A pandas data frame containing positive and negative datapoints
     """
-    excel_file = "/Users/jonpdeaton/Google Drive/school/BIOE 141A/Heat_Stroke_Prediction/Literature_Data.xlsx"
     df = pd.read_excel(excel_file)
     negative_df = get_negative_data()
     df = pd.concat((df, negative_df))
-    complete_missing_data(df)
+    compelte_missing_with_default(df)
     return df
 
 def get_test_data(N=200, num_fts=20):
@@ -38,58 +69,68 @@ def get_test_data(N=200, num_fts=20):
     df = pd.DataFrame(data, columns=columns)
     return df
 
+def get_resting_data(N=30):
+    # todo
+    pass
+
+def get_exercising_data(N=30):
+    # todo
+    pass
+
 def get_negative_data():
     # todo
     pass
 
-def complete_missing_data(df):
-    cols = pd.Index(['Case', 'Source (Paper)', 'Case ID', 'Died / recovered',
-                     'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications',
-                     'Eertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
-                     'Geographical location', 'Environmental temperature (C)',
-                     'Humidity 8am', 'Humidity noon', 'Humidity 8pm', 'Barometric Pressure',
-                     'Heat Index (HI)', 'Time of day', 'Time of year (month)',
-                     'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
-                     'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
-                     'Duration of abnormal temperature', 'Patient temperature',
-                     'Rectal temperature', 'Respiratory rate', 'Daily Ingested Water (L)',
-                     'Sweating', 'Skin rash',
-                     'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
-                     'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
-                     'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
-                     'Total serum protein (gm/100ml)', 'Serum albumin',
-                     'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
-                     'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content',
-                     'femoral arterial CO2 content', 'femoral venous oxygen content',
-                     'femoral venous CO2 content', 'Hemoglobin', 'Red blood cell count',
-                     'Hematocrit', 'Hyperpotassemia', 'White blood cell count',
-                     'Alkaline phosphatase', 'Platelets', 'Diarrhea', 'Bronchospasm', 'AST',
-                     'ALT', 'CPK', 'Pulmonary congestion', 'Muscle tone',
-                     'Initial treatment', 'Time of cooling'], dtype='object')
+def compelte_missing_with_default(df):
+    # Filling with default values
+    for field in defaults:
+        if field not in df.columns:
+            logger.warning("\"%s\" missing from data-frame columns" % field)
+            continue
+        logger.info("Setting missing in \"field\" to default: %s" % defaults[field])
+        df[field][df[field] == np.nan] = defaults[field]
 
-    defaults = {'Case': 1, "Source (Paper)": "None", 'Case ID': 1, 'Died / recovered': 0,
-                'Time to death (hours)': 0, 'Heat stroke': 0, 'Mental state':0 , 'Complications': 0,
-                    'Eertional (1) vs classic (0)': 0, 'Dehydration':0 , 'Strenuous exercise':0,
-                     'Geographical location': "None", 'Environmental temperature (C)': 90,
-                     'Humidity 8am': 0.1, 'Humidity noon':0.1, 'Humidity 8pm':0.1, 'Barometric Pressure':24,
-                     'Heat Index (HI)': 0, 'Time of day', 'Time of year (month)',
-                     'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
-                     'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
-                     'Duration of abnormal temperature', 'Patient temperature',
-                     'Rectal temperature', 'Respiratory rate', 'Daily Ingested Water (L)',
-                     'Sweating', 'Skin rash',
-                     'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
-                     'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
-                     'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
-                     'Total serum protein (gm/100ml)', 'Serum albumin',
-                     'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
-                     'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content',
-                     'femoral arterial CO2 content', 'femoral venous oxygen content',
-                     'femoral venous CO2 content', 'Hemoglobin', 'Red blood cell count',
-                     'Hematocrit', 'Hyperpotassemia', 'White blood cell count',
-                     'Alkaline phosphatase', 'Platelets', 'Diarrhea', 'Bronchospasm', 'AST',
-                     'ALT', 'CPK', 'Pulmonary congestion', 'Muscle tone',
-                     'Initial treatment', 'Time of cooling'}
+    # Filling with Zeros
+    for field in fill_with_zero:
+        if field not in df.columns:
+            logger.warning("\"%s\" missing from data-frame columns" % field)
+            continue
+        logger.info("Setting missing values in \"%s\" to zero" % field)
+        where = df[field] == np.nan
+        where *= np.array(list(map(df[field]))) == str
+        df[field][where] = 0
+
+    # Filling in columns with the average from the rest of the column
+    for field in fill_with_average:
+        if field not in df.columns:
+            logger.warning("\"%s\" missing from data-frame columns" % field)
+            continue
+        where = df[field] != np.nan
+        where *= np.array(list(map(df[field]))) != str
+        data = df[field][where]
+        mean = np.mean(data)
+        std = np.std(data)
+        logger.info("Setting missing in \"%s\" with: %.3f +/- %.3f" % (field, mean, std))
+        df[field][np.invert(where)] = mean + std * np.random.random(len(data))
+
+    fields_not_modified = set(df.columns) - set(defaults.keys()) - set(fill_with_average) - set(fill_with_zero)
+    logger.info("Fields not modified: %s" % fields_not_modified.__str__())
+
+    return df
+
+def remove_strings(df):
+    for field in df.columns:
+        where = np.array(list(map(df[field]))) == str
+        if any(where):
+            if field in defaults.keys():
+                df[field][where] = defaults[field]
+            elif field in fill_with_zero:
+                df[field][where] = 0
+            elif field in fill_with_average:
+                data = df[field][np.invert(where)]
+                df[field][where] = np.mean(data) + np.std(data) * np.random.random(len(data))
+    return df
+
 
 def trim(df):
     features = pd.Index(['Heat stroke', 'Eertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise'

@@ -21,23 +21,29 @@ from itertools import cycle
 from scipy import interp
 import read_data
 
+logging.basicConfig(format='[%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 def main():
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-in', '--excel_file', help='Input excel file with data')
+    parser.add_argument('-in', '--input', help='Input spreadsheet with case data')
     parser.add_argument('-sheet', '--sheetname', default='Individualized Data', help="Name of sheet in excel file")
     args = parser.parse_args()
 
-    logging.basicConfig(format='[%(funcName)s] - %(message)s')
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+    if args.input.endswith(".csv"):
+        df = pd.read_csv(args.input)
+    elif args.input.endswith(".excel"):
+        df = pd.read_excel(args.input, sheetname=args.sheetname)
+    else:
+        default_excel_file = "/Users/jonpdeaton/Google Drive/school/BIOE 141A/Heat_Stroke_Prediction/Literature_Data.xlsx"
+        pd.read_excel(default_excel_file)
 
-    excel_file = args.excel_file
-    if args.excel_file is None:
-        excel_file = "/Users/jonpdeaton/Google Drive/school/BIOE 141A/Heat_Stroke_Prediction/Literature_Data.xlsx"
 
-    df = pd.read_excel(excel_file, sheetname=args.sheetname)
-    read_data.complete_missing_data(df)
+    df = read_data.compelte_missing_with_default(df)
+    print(df)
+    exit()
     neg_df = read_data.get_negative_data()
 
     # For testing
