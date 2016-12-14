@@ -10,7 +10,9 @@ predicting heat stroke.
 1. Python 3
 2. Anaconda 3
 3. gspread
-	`sudo pip install gspread`
+	```
+	sudo pip install gspread
+	```
 4. oauth2client
 	`sudo pip install oauth2client`
 
