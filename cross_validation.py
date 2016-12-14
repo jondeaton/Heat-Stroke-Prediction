@@ -32,16 +32,18 @@ def main():
     parser.add_argument('-sheet', '--sheetname', default='Individualized Data', help="Name of sheet in excel file")
     args = parser.parse_args()
 
+    logger.info("Reading data from file...")
     if args.input.endswith(".csv"):
         df = pd.read_csv(args.input)
-    elif args.input.endswith(".excel"):
+    elif args.input.endswith(".xlsx"):
         df = pd.read_excel(args.input, sheetname=args.sheetname)
     else:
         default_excel_file = "/Users/jonpdeaton/Google Drive/school/BIOE 141A/Heat_Stroke_Prediction/Literature_Data.xlsx"
         pd.read_excel(default_excel_file)
 
-
-    df = read_data.compelte_missing_with_default(df)
+    logger.info("Filling missing data...")
+    df = read_data.fill_missing(df)
+    logger.info("Completed data filling.")
     print(df)
     exit()
     neg_df = read_data.get_negative_data()

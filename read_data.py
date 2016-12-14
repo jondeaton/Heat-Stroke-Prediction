@@ -49,7 +49,7 @@ def get_filtered_data(excel_file="/Users/jonpdeaton/Google Drive/school/BIOE 141
     df = pd.read_excel(excel_file)
     negative_df = get_negative_data()
     df = pd.concat((df, negative_df))
-    compelte_missing_with_default(df)
+    fill_missing(df)
     return df
 
 def get_test_data(N=200, num_fts=20):
@@ -81,36 +81,39 @@ def get_negative_data():
     # todo
     pass
 
-def compelte_missing_with_default(df):
+def fill_missing(df):
     # Filling with default values
     for field in defaults:
         if field not in df.columns:
-            logger.warning("\"%s\" missing from data-frame columns" % field)
+            logger.warning("(%s) missing from data-frame columns" % field)
             continue
-        logger.info("Setting missing in \"field\" to default: %s" % defaults[field])
-        df[field][df[field] == np.nan] = defaults[field]
+        logger.info("Setting missing in (%s) to default: %s" % (field, defaults[field]))
+        where = df[field] == np.nan
+        df[field][where] = np.ones(np.sum(where)) * defaults[field]
 
     # Filling with Zeros
     for field in fill_with_zero:
         if field not in df.columns:
-            logger.warning("\"%s\" missing from data-frame columns" % field)
+            logger.warning("(%s) missing from data-frame columns" % field)
             continue
-        logger.info("Setting missing values in \"%s\" to zero" % field)
+        logger.info("Setting missing in (%s) to zero" % field)
         where = df[field] == np.nan
-        where *= np.array(list(map(df[field]))) == str
-        df[field][where] = 0
+        where &= np.array(list(map(type, df[field]))) == str
+        df[field][where] = np.zeros(np.sum(where))
 
     # Filling in columns with the average from the rest of the column
     for field in fill_with_average:
         if field not in df.columns:
-            logger.warning("\"%s\" missing from data-frame columns" % field)
+            logger.warning("(%s) missing from data-frame columns" % field)
             continue
         where = df[field] != np.nan
-        where *= np.array(list(map(df[field]))) != str
+        where &= np.array(list(map(type, df[field]))) != str
         data = df[field][where]
         mean = np.mean(data)
         std = np.std(data)
-        logger.info("Setting missing in \"%s\" with: %.3f +/- %.3f" % (field, mean, std))
+        if mean == np.nan or std == np.nan:
+            mean, std = (0, 0)
+        logger.info("Setting missing in (%s) with: %.3f +/- %.3f" % (field, mean, std))
         df[field][np.invert(where)] = mean + std * np.random.random(len(data))
 
     fields_not_modified = set(df.columns) - set(defaults.keys()) - set(fill_with_average) - set(fill_with_zero)
@@ -120,7 +123,7 @@ def compelte_missing_with_default(df):
 
 def remove_strings(df):
     for field in df.columns:
-        where = np.array(list(map(df[field]))) == str
+        where = np.array(list(map(type, df[field]))) == str
         if any(where):
             if field in defaults.keys():
                 df[field][where] = defaults[field]
@@ -133,7 +136,7 @@ def remove_strings(df):
 
 
 def trim(df):
-    features = pd.Index(['Heat stroke', 'Eertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise'
+    features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise'
                         , 'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm', 'Barometric Pressure',
                          'Heat Index (HI)', 'Time of day', 'Time of year (month)',
                          'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
