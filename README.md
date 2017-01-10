@@ -1,9 +1,8 @@
 # Heat_Stroke_Prediction
 
-This is a repository for code used in Bioengineering Capstone at Stanford. (Bioe 141A)
+This is a repository for code used in Bioengineering Capstone at Stanford. (Bioe 141A/B)
 
-Code in this repository is used for testing of methods for
-predicting heat stroke.
+Code in this repository is used for testing of methods for predicting heat stroke with a wearable device.
 
 ## Dependencies
 
