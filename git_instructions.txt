@@ -24,7 +24,7 @@ https://github.com/jondeaton/Heat_Stroke_Prediction
 		(This is how you select which files to commit changes to)
 		(GitHub is made to store code so don't add large media files)
 	- type:
-		git commit -m "Put a message here"
+		git commit -m "Put a message here that tells us what you changed"
 		(This "commits" your changes)
 	- type: 
 		git push origin master
