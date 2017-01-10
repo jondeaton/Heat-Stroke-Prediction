@@ -1,0 +1,42 @@
+These are some instruction on how to use git so that we can all edit our code and have it backed up in one repository (on GitHub)
+
+Our repository is located here:
+https://github.com/jondeaton/Heat_Stroke_Prediction
+
+1) Downloading the latest code in our repository
+	- open a terminal (/Applications/Utilities/Terminal.app)
+	- Change directory into a location where you want to download
+		(like this: cd <file path>)
+	- type:
+		git clone <URL>
+		(but replace URL with the URL of our repository)
+
+2) Now you can edit any of the files/code
+	The previous command should have made a folder/dicrectory called "Heat_Stroke_Predictoin" containing all of our code files.
+
+3) To "save" your changes to the repository (called commiting)
+	- while in the project folder/directory (should be named Heat_Stroke_Predictoin)
+	  type:
+		git pull origin 
+		(This will update your project with any changes that others have made while you were making your own changes)
+	- type:
+		git add <a file that you edited>
+		(This is how you select which files to commit changes to)
+		(GitHub is made to store code so don't add large media files)
+	- type:
+		git commit -m "Put a message here"
+		(This "commits" your changes)
+	- type: 
+		git push origin master
+		(This sends your changes to our github repository)
+
+
+
+
+If you need more help/better understanding you can do this tutorial:
+https://www.codecademy.com/learn/learn-git
+
+
+
+
+
