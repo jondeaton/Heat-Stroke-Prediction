@@ -11,11 +11,10 @@ https://github.com/jondeaton/Heat_Stroke_Prediction
 		git clone <URL>
 		(but replace URL with the URL of our repository)
 
-2) Now you can edit any of the files/code
-	The previous command should have made a folder/dicrectory called "Heat_Stroke_Predictoin" containing all of our code files.
+2)The previous command should have made a folder/dicrectory called "Heat_Stroke_Prediction" containing all of our code files. Now you can edit any of the files/code
 
 3) To "save" your changes to the repository (called commiting)
-	- while in the project folder/directory (should be named Heat_Stroke_Predictoin)
+	- while in the project folder/directory (should be named Heat_Stroke_Prediction)
 	  type:
 		git pull origin 
 		(This will update your project with any changes that others have made while you were making your own changes)
