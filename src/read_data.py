@@ -60,7 +60,7 @@ class HeatStrokeDataFiller(object):
             'Total serum protein (gm/100ml)': 70, 'Serum albumin': 40, 'Blood Glucose (mg/100ml)': 150,
             'Serum sodium (mmol/L)': 140, 'Serum potassium (mEq/L)': 4, 'Serum chloride (mEq/L)': 100,
             'Haemoglobin (g/dl)': 14, 'Hematocrit': 42,  'White blood cell count (/mcL)': 5000,
-            'Platelets': 300000,  'Initial treatment': "None", 'Temperature cooled to (C)': 37}
+            'Platelets': 300000,  'Initial treatment': "None", 'Temperature cooled to (C)': 37,}
 
         # Fields to fill with zero value
         # Anything that isn't a numeric value gets replaces with zero
@@ -73,10 +73,9 @@ class HeatStrokeDataFiller(object):
 
         # Fields to fill with the average of others
         # Anything that isn't a float, or int gets replaced with the average of the others
-        self.fields_to_fill_with_average = {'AST (U/I)', 'ALT (U/I)', 'CPK (U/I)'}
-
+        self.fields_to_fill_with_average = {'AST (U/I)', 'ALT (U/I)', 'CPK (U/I)', "Time of cooling (min)", "Mean cooling time/C (min)"}
         self.temp_fields = ["Environmental temperature (C)", "Patient temperature", "Rectal temperature (deg C)", "Temperature cooled to (C)"]
-
+        self.keyword_map = {"hot": 39, "humid": 1, "hydrated": 5, "low": 0}
 
     def read_and_filter_data(self):
         """
@@ -165,12 +164,44 @@ class HeatStrokeDataFiller(object):
             farenheight_valus = self.df[temp_field] > 70
             self.df[temp_field].loc[farenheight_valus] = (self.df[temp_field][farenheight_valus] - 32.0) * 100.0 / (212 - 32)
 
+    def fix_percentage_fields(self):
+        self.percentage_fields = {"Humidity 8am", "Humidity noon", "Humidity 8pm"}
+        for field in self.percentage_fields:
+            for i in range(self.df.shape[0]):
+                value = self.df[field][i]
+                if value > 1:
+                    self.df[field].loc[i] = value / 100
+
+    def fix_keyword_fields(self):
+        for field in self.df.columns:
+            for i in range(self.df.shape[0]):
+                value = self.df[field][i]
+                if type(value) is str and value.replace("\"", "") in self.keyword_map:
+                    self.df[field].loc[i] = self.keyword_map[value.replace("\"", "")]
+
+    def fix_range_fields(self):
+        for field in self.df.columns:
+            for i in range(self.df.shape[0]):
+                value = self.df[field][i]
+                if type(value) is str and "-" in value:
+                    try:
+                        value = np.mean(map(float, value.split("-")))
+                        self.df[field].loc[i] = value
+                    except:
+                        pass
+
     def fix_fields(self):
+        # Fixed values that are bad
         males = self.df["Sex"] == "M"
-        self.df["Sex"] = males
+        self.df["Sex"] = np.array(males, dtype=int)
 
         self.fix_bounded_values()
+        self.fix_range_fields()
+        self.fix_keyword_fields()
         self.fix_temperature_fields()
+        self.df.to_csv("~/Desktop/test.csv")
+        self.fix_percentage_fields()
+
 
     def trim(self):
         """
