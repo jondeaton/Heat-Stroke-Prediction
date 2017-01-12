@@ -18,6 +18,22 @@ logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
+                     'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm',
+                        'Barometric Pressure', 'Heat Index (HI)', 'Time of day', 'Time of year (month)',
+                         'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
+                         'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
+                         'Duration of abnormal temperature', 'Patient temperature',
+                         'Rectal temperature (deg C)', 'Respiratory rate', 'Daily Ingested Water (L)',
+                         'Sweating', 'Skin rash',
+                         'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
+                         'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
+                         'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
+                         'Total serum protein (gm/100ml)', 'Serum albumin',
+                         'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
+                         'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content'],
+                        dtype='object')
+
 # Physiologically Normal Ranges
 defaults = {'Case': 1, "Source (Paper)":0, 'Case ID': 1,
             'Geographical location': "None", 'Environmental temperature (C)': 90,
@@ -98,11 +114,10 @@ def fill_missing(df):
         if field not in df.columns:
             logger.warning("(%s) missing from data-frame columns" % field)
             continue
-        logger.info("Setting missing in (%s) to default: %s" % (field, defaults[field]))
+        logger.info("Setting missing in \"%s\" to default: %s" % (field, defaults[field]))
         default_value = defaults[field]
-        where = np.zeros(len(df[field]), dtype=bool)
-        try:
-            where = np.isnan(list(df[field]))
+
+        where = find_where_missing(df, field, find_nan=True, find_str=False)
         how_many_to_fill = np.sum(where)
         df[field].loc[where] = np.array([default_value] * how_many_to_fill)
         write_data(df, "~/Desktop/test.csv")
@@ -110,11 +125,11 @@ def fill_missing(df):
     # Filling with Zeros
     for field in fill_with_zero:
         if field not in df.columns:
-            logger.warning("(%s) missing from data-frame columns" % field)
+            logger.warning("\"%s\" missing from columns" % field)
             continue
-        logger.info("Setting missing in (%s) to 0" % field)
-        where = np.isnan(list(df[field]))
-        where &= np.array(list(map(type, df[field]))) == str
+        logger.info("Setting missing in \"%s\" to 0" % field)
+
+        where = find_where_missing(df, field, find_nan=True, find_str=True)
         how_many_to_fill = np.sum(where)
         df[field].loc[where] = np.zeros(how_many_to_fill)
         write_data(df, "~/Desktop/test.csv")
@@ -122,19 +137,18 @@ def fill_missing(df):
     # Filling in columns with the average from the rest of the column
     for field in fill_with_average:
         if field not in df.columns:
-            logger.warning("(%s) missing from data-frame columns" % field)
+            logger.warning("\"%s\" missing from data-frame columns" % field)
             continue
-        where = np.invert(np.isnan(list(df[field])))
-        #where = df[field] != np.nan
-        where &= np.array(list(map(type, df[field]))) != str
-        data = df[field][where]
+
+        where = find_where_missing(df, field, find_nan=True, find_str=True)
+        data = df[field][np.invert(where)]
         mean = np.mean(data)
         std = np.std(data)
         if mean == np.nan or std == np.nan:
             mean, std = (0, 0)
-        logger.info("Setting missing in (%s) with: %.3f +/- %.3f" % (field, mean, std))
-        how_many_to_fill = np.sum(np.invert(where))
-        df[field].loc[np.invert(where)] = mean + std * np.random.random(how_many_to_fill)
+        logger.info("Setting missing in \"%s\" with: %.3f +/- %.3f" % (field, mean, std))
+        how_many_to_fill = np.sum(where)
+        df[field].loc[where] = mean + std * np.random.random(how_many_to_fill)
         write_data(df, "~/Desktop/test.csv")
 
     write_data(df, "~/Desktop/test.csv")
@@ -142,8 +156,23 @@ def fill_missing(df):
 
     fields_not_modified = set(df.columns) - set(defaults.keys()) - set(fill_with_average) - set(fill_with_zero)
     logger.info("Fields not modified: %s" % fields_not_modified.__str__())
-
     return df
+
+
+def find_where_missing(df, field, find_nan=True, find_str=True):
+    # Finding all the places that are strings or Nan
+    where = np.zeros(df.shape[0], dtype=bool)
+    for i in range(df.shape[0]):
+        if find_str and type(df[field][i]) is str:
+                where[i] = True
+        elif find_nan:
+            try:
+                where[i] |= np.isnan(df[field][i])
+            except TypeError:
+                logger.error("Type error for: %s" % df[field][i])
+                pass
+    return where
+
 
 def remove_strings(df):
     for field in df.columns:
@@ -158,23 +187,7 @@ def remove_strings(df):
                 df[field][where] = np.mean(data) + np.std(data) * np.random.random(len(data))
     return df
 
-
 def trim(df):
-    features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise'
-                        , 'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm', 'Barometric Pressure',
-                         'Heat Index (HI)', 'Time of day', 'Time of year (month)',
-                         'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
-                         'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
-                         'Duration of abnormal temperature', 'Patient temperature',
-                         'Rectal temperature (deg C)', 'Respiratory rate', 'Daily Ingested Water (L)',
-                         'Sweating', 'Skin rash',
-                         'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
-                         'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
-                         'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
-                         'Total serum protein (gm/100ml)', 'Serum albumin',
-                         'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
-                         'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content'],
-                        dtype='object')
     return df[features]
 
 def main():
