@@ -20,73 +20,70 @@ logger.setLevel(logging.DEBUG)
 
 class HeatStrokeDataFiller(object):
 
-    important_features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
-                     'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm',
-                        'Barometric Pressure', 'Heat Index (HI)', 'Time of day', 'Time of year (month)',
-                         'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
-                         'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
-                         'Duration of abnormal temperature', 'Patient temperature',
-                         'Rectal temperature (deg C)', 'Respiratory rate', 'Daily Ingested Water (L)',
-                         'Sweating', 'Skin rash',
-                         'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
-                         'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
-                         'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
-                         'Total serum protein (gm/100ml)', 'Serum albumin',
-                         'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
-                         'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content'],
-                        dtype='object')
+    # Physiologically Normal Ranges
+    # Anything that is a Nan (empty) gets replaced with these
+    default_map = {'Case': 1, "Source (Paper)": 0, 'Case ID': 1,
+        'Geographical location': "None", 'Environmental temperature (C)': 90,
+        'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
+        'Heat Index (HI)': 0, 'Time of day': 12.00, 'Time of year (month)': 6,
+        'Age': 30, 'Weight (kg)': 140, 'BMI': 26.5, 'Nationality':"None",
+        'Patient temperature': 37, "Sex": "F",
+        'Rectal temperature (deg C)': 37, 'Respiratory rate': 16, 'Daily Ingested Water (L)': 3.7,
+        'Sweating': 0.5, 'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': 1,
+        'Heart / Pulse rate (b/min)': 80, '(mean) Arterial blood pressure (mmHg)': 120,
+        'Systolic BP': 120, 'Diastolic BP': 80, 'Arterial oxygen saturation': 95,
+        'Total serum protein (gm/100ml)': 70, 'Serum albumin': 40, 'Blood Glucose (mg/100ml)': 150,
+        'Serum sodium (mmol/L)': 140, 'Serum potassium (mEq/L)': 4, 'Serum chloride (mEq/L)': 100,
+        'Haemoglobin (g/dl)': 14, 'Hematocrit': 42,  'White blood cell count (/mcL)': 5000,
+        'Platelets': 300000,  'Initial treatment': "None", 'Temperature cooled to (C)': 37,}
 
-        # Physiologically Normal Ranges
-        # Anything that is a Nan (empty) gets replaced with these
-        default_map = {'Case': 1, "Source (Paper)": 0, 'Case ID': 1,
-            'Geographical location': "None", 'Environmental temperature (C)': 90,
-            'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
-            'Heat Index (HI)': 0, 'Time of day': 12.00, 'Time of year (month)': 6,
-            'Age': 30, 'Weight (kg)': 140, 'BMI': 26.5, 'Nationality':"None",
-            'Patient temperature': 37, "Sex": "F",
-            'Rectal temperature (deg C)': 37, 'Respiratory rate': 16, 'Daily Ingested Water (L)': 3.7,
-            'Sweating': 0.5, 'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': 1,
-            'Heart / Pulse rate (b/min)': 80, '(mean) Arterial blood pressure (mmHg)': 120,
-            'Systolic BP': 120, 'Diastolic BP': 80, 'Arterial oxygen saturation': 95,
-            'Total serum protein (gm/100ml)': 70, 'Serum albumin': 40, 'Blood Glucose (mg/100ml)': 150,
-            'Serum sodium (mmol/L)': 140, 'Serum potassium (mEq/L)': 4, 'Serum chloride (mEq/L)': 100,
-            'Haemoglobin (g/dl)': 14, 'Hematocrit': 42,  'White blood cell count (/mcL)': 5000,
-            'Platelets': 300000,  'Initial treatment': "None", 'Temperature cooled to (C)': 37,}
+    # Fields to fill with zero value
+    # Anything that isn't a numeric value gets replaces with zero
+    fields_to_fill_with_zero = {'Heat stroke', 'Complications', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
+                                     'Died (1) / recovered (0)', 'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications',
+                                     'Exposure to sun', 'Cardiovascular disease history','Sickle Cell Trait (SCT)',
+                                     'Skin rash', 'Diarrhea', 'Bronchospasm', 'Decrebrate convulsion', 'Hot/dry skin',
+                                     'Cerebellar ataxia', 'Myocardial infarction', 'Hepatic failure','Pulmonary congestion',
+                                     'Duration of abnormal temperature'}
 
-        # Fields to fill with zero value
-        # Anything that isn't a numeric value gets replaces with zero
-        fields_to_fill_with_zero = {'Heat stroke', 'Complications', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
-                                         'Died (1) / recovered (0)', 'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications',
-                                         'Exposure to sun', 'Cardiovascular disease history','Sickle Cell Trait (SCT)',
-                                         'Skin rash', 'Diarrhea', 'Bronchospasm', 'Decrebrate convulsion', 'Hot/dry skin',
-                                         'Cerebellar ataxia', 'Myocardial infarction', 'Hepatic failure','Pulmonary congestion',
-                                         'Duration of abnormal temperature'}
+    # Fields to fill with the average of others
+    # Anything that isn't a float, or int gets replaced with the average of the others
+    fields_to_fill_with_average = {'AST (U/I)', 'ALT (U/I)', 'CPK (U/I)', "Time of cooling (min)", "Mean cooling time/C (min)"}
+    temp_fields = ["Environmental temperature (C)", "Patient temperature", "Rectal temperature (deg C)", "Temperature cooled to (C)"]
+    keyword_map = {"hot": 39, "humid": 1, "hydrated": 5, "low": 0}
 
-        # Fields to fill with the average of others
-        # Anything that isn't a float, or int gets replaced with the average of the others
-        fields_to_fill_with_average = {'AST (U/I)', 'ALT (U/I)', 'CPK (U/I)', "Time of cooling (min)", "Mean cooling time/C (min)"}
-        temp_fields = ["Environmental temperature (C)", "Patient temperature", "Rectal temperature (deg C)", "Temperature cooled to (C)"]
-        keyword_map = {"hot": 39, "humid": 1, "hydrated": 5, "low": 0}
+    # Each negative default has a distribution from which N points are drawn
+    negative_default = {'Heat stroke': lambda N: np.zeros(N),
+                        'Exertional (1) vs classic (0)': lambda N: np.zeros(N),
+                        'Dehydration': lambda N: np.zeros(N),
+                        'Strenuous exercise': lambda N: np.zeros(N),
+                        'Environmental temperature (C)': lambda N: 20 + 5 * np.random.random(N),
+                        'Relative Humidity': lambda N: 10 + 10 * np.random.random(N),
+                        'Barometric Pressure': lambda N: 29.97 * np.ones(N),
+                        'Heat Index (HI)': lambda N: 20 + 5 * np.random.random(N),
+                        'Time of day': lambda N: 9 + 8 * np.random.random(N),
+                        'Time of year (month)': lambda N: 12 * np.random.random(N),
+                        'Exposure to sun': lambda N: np.random.random(N) > 0.5,
+                        'Sex': lambda N: np.random.random(N) > 0.5,
+                        'Age': lambda N: 18 + 40 * np.random.random(N),
+                        'BMI': lambda N: 18.5 + (23 - 18.5) * np.random.random(N),
+                        'Weight (kg)': lambda N: 41.2769 + (53.5239 - 41.2769) * np.random.random(N),
+                        'Nationality': lambda N: np.random.random(N) > 0.5,
+                        'Cardiovascular disease history': lambda N: np.random.random(N) < 0.05,
+                        'Sickle Cell Trait (SCT)': lambda N: np.random.random(N) < 10e-5,
+                        'Patient temperature': lambda N: 36.1 + (37.2 - 36.1) * np.random.random(N),
+                        'Rectal temperature (deg C)': lambda N: 36.1 + (37.2 - 36.1) * np.random.random(N),
+                        'Daily Ingested Water (L)': lambda N: 1 + np.random.random(N) * 5,
+                        'Sweating': lambda N: np.random.random(N) < 0.5,
+                        'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': lambda N: 0.9 * np.random.random(N) * 0.1,
+                        'Hot/dry skin': lambda N: np.random.random(N) < 0.05,
+                        'Heart / Pulse rate (b/min)': lambda N: 60 + 50 * np.random.random(N),
+                        'Systolic BP': lambda N: 110 + 10 * np.random.random(N),
+                        'Diastolic BP': lambda N: 80 + 10 * np.random.random(N)}
 
-
-        negative_defaults = {'Heat stroke':0, 'Exertional (1) vs classic (0)':0, 'Dehydration':0, 'Strenuous exercise':0,
-                     'Environmental temperature (C)':35, 'Humidity 8am':10, 'Humidity noon':10, 'Humidity 8pm':10,
-                        'Barometric Pressure', 'Heat Index (HI)', 'Time of day', 'Time of year (month)',
-                         'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
-                         'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
-                         'Duration of abnormal temperature', 'Patient temperature',
-                         'Rectal temperature (deg C)', 'Respiratory rate', 'Daily Ingested Water (L)',
-                         'Sweating', 'Skin rash',
-                         'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
-                         'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
-                         'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
-                         'Total serum protein (gm/100ml)', 'Serum albumin',
-                         'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
-                         'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content'}
-
+    important_features = pd.Index(negative_default.keys())
 
     def __init__(self):
-
         self.project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.excel_file = os.path.join(self.project_dir, "data", "Literature_Data.xlsx")
         self.spreadsheet_name = "Individualized Data"
@@ -208,6 +205,10 @@ class HeatStrokeDataFiller(object):
                     except:
                         pass
 
+    def combine_fields(self):
+        humidity_fields = ['Humidity 8am', 'Humidity noon', 'Humidity 8pm']
+        self.df['Relative Humidity'] = np.mean(self.df[humidity_fields], axis=1)
+
     def fix_fields(self):
         # Fixed values that are bad
         males = self.df["Sex"] == "M"
@@ -219,6 +220,7 @@ class HeatStrokeDataFiller(object):
         self.fix_temperature_fields()
         self.df.to_csv("~/Desktop/test.csv")
         self.fix_percentage_fields()
+        self.combine_fields()
 
     def filter_data(self):
         """
@@ -229,6 +231,8 @@ class HeatStrokeDataFiller(object):
         self.df = self.df[HeatStrokeDataFiller.important_features]
 
     def make_and_append_negative_data(self):
+        # This function generates some negative data points from default distributions
+        # and appends that to the data frame
         negative_df = self.get_negative_data()
         self.df = pd.concat((self.df, negative_df))
 
@@ -279,23 +283,18 @@ class HeatStrokeDataFiller(object):
 
     @staticmethod
     def get_negative_data(N=500):
+        """
+        This function generates a pandas DataFrame with N elements each column/field. The data points are generated
+        from functions (stored in the hash HeatStrokeDataFiller.negative_default) that each will take a parameter N
+        as the number of points and return N data points drawn from an appropriate distribution for that field
+        :param N: The number of data points
+        :return: A pandas DataFrame
+        """
         negative_df = pd.DataFrame(columns=HeatStrokeDataFiller.important_features, index=np.arange(N))
         for field in negative_df.columns:
-
-
-
-    def remove_strings(self):
-        for field in self.df.columns:
-            where = np.array(list(map(type, self.df[field]))) == str
-            if any(where):
-                if field in HeatStrokeDataFiller.default_map.keys():
-                    self.df[field][where] = HeatStrokeDataFiller.default_map[field]
-                elif field in HeatStrokeDataFiller.fields_to_fill_with_zero:
-                    self.df[field].loc[where] = 0
-                elif field in HeatStrokeDataFiller.fields_to_fill_with_average:
-                    data = self.df[field][np.invert(where)]
-                    self.df[field].loc[where] = np.mean(data) + np.std(data) * np.random.random(len(data))
-
+            parameter_distribution = HeatStrokeDataFiller.negative_default[field]
+            negative_df[field] = parameter_distribution(N)
+        return negative_df
 
 def main():
 
