@@ -20,16 +20,7 @@ logger.setLevel(logging.DEBUG)
 
 class HeatStrokeDataFiller(object):
 
-    def __init__(self):
-
-        self.project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.excel_file = os.path.join(self.project_dir, "data", "Literature_Data.xlsx")
-        self.spreadsheet_name = "Individualized Data"
-        self.output_file = os.path.join(self.project_dir, "data", "filled_data.csv")
-
-        self.use_fake_data = False
-
-        self.important_features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
+    important_features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
                      'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm',
                         'Barometric Pressure', 'Heat Index (HI)', 'Time of day', 'Time of year (month)',
                          'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
@@ -47,7 +38,7 @@ class HeatStrokeDataFiller(object):
 
         # Physiologically Normal Ranges
         # Anything that is a Nan (empty) gets replaced with these
-        self.default_map = {'Case': 1, "Source (Paper)": 0, 'Case ID': 1,
+        default_map = {'Case': 1, "Source (Paper)": 0, 'Case ID': 1,
             'Geographical location': "None", 'Environmental temperature (C)': 90,
             'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
             'Heat Index (HI)': 0, 'Time of day': 12.00, 'Time of year (month)': 6,
@@ -64,7 +55,7 @@ class HeatStrokeDataFiller(object):
 
         # Fields to fill with zero value
         # Anything that isn't a numeric value gets replaces with zero
-        self.fields_to_fill_with_zero = {'Heat stroke', 'Complications', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
+        fields_to_fill_with_zero = {'Heat stroke', 'Complications', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise',
                                          'Died (1) / recovered (0)', 'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications',
                                          'Exposure to sun', 'Cardiovascular disease history','Sickle Cell Trait (SCT)',
                                          'Skin rash', 'Diarrhea', 'Bronchospasm', 'Decrebrate convulsion', 'Hot/dry skin',
@@ -73,9 +64,36 @@ class HeatStrokeDataFiller(object):
 
         # Fields to fill with the average of others
         # Anything that isn't a float, or int gets replaced with the average of the others
-        self.fields_to_fill_with_average = {'AST (U/I)', 'ALT (U/I)', 'CPK (U/I)', "Time of cooling (min)", "Mean cooling time/C (min)"}
-        self.temp_fields = ["Environmental temperature (C)", "Patient temperature", "Rectal temperature (deg C)", "Temperature cooled to (C)"]
-        self.keyword_map = {"hot": 39, "humid": 1, "hydrated": 5, "low": 0}
+        fields_to_fill_with_average = {'AST (U/I)', 'ALT (U/I)', 'CPK (U/I)', "Time of cooling (min)", "Mean cooling time/C (min)"}
+        temp_fields = ["Environmental temperature (C)", "Patient temperature", "Rectal temperature (deg C)", "Temperature cooled to (C)"]
+        keyword_map = {"hot": 39, "humid": 1, "hydrated": 5, "low": 0}
+
+
+        negative_defaults = {'Heat stroke':0, 'Exertional (1) vs classic (0)':0, 'Dehydration':0, 'Strenuous exercise':0,
+                     'Environmental temperature (C)':35, 'Humidity 8am':10, 'Humidity noon':10, 'Humidity 8pm':10,
+                        'Barometric Pressure', 'Heat Index (HI)', 'Time of day', 'Time of year (month)',
+                         'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
+                         'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
+                         'Duration of abnormal temperature', 'Patient temperature',
+                         'Rectal temperature (deg C)', 'Respiratory rate', 'Daily Ingested Water (L)',
+                         'Sweating', 'Skin rash',
+                         'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
+                         'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
+                         'Systolic BP', 'Diastolic BP', 'Arterial oxygen saturation',
+                         'Total serum protein (gm/100ml)', 'Serum albumin',
+                         'Non-protein nitrogen', 'Blood Glucose (mg/100ml)', 'Serum sodium',
+                         'Serum potassium', 'Serum chloride', 'femoral arterial oxygen content'}
+
+
+    def __init__(self):
+
+        self.project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.excel_file = os.path.join(self.project_dir, "data", "Literature_Data.xlsx")
+        self.spreadsheet_name = "Individualized Data"
+        self.filled_output_file = os.path.join(self.project_dir, "data", "filled_data.csv")
+        self.output_file = os.path.join(self.project_dir, "data", "final.csv")
+        self.use_fake_data = False
+        self.df = None
 
     def read_and_filter_data(self):
         """
@@ -83,17 +101,17 @@ class HeatStrokeDataFiller(object):
         :return: A pandas data frame containing positive and negative datapoints
         """
         if self.use_fake_data:
-            # todo: does this work?
             return HeatStrokeDataFiller.create_fake_test_data()
 
         self.df = pd.read_excel(self.excel_file, sheetname=self.spreadsheet_name)
-        #negative_df = get_negative_data()
-        # print(negative_df)
-        # df = pd.concat((df, negative_df))
         self.fill_missing()
         self.df.to_csv("~/Desktop/filled.csv")
         self.fix_fields()
         self.df.to_csv("~/Desktop/fixed.csv")
+        self.filter_data()
+
+        self.make_and_append_negative_data()
+        self.df.to_csv("~/Desktop/concat.csv")
 
     def fill_missing(self):
         """
@@ -102,19 +120,19 @@ class HeatStrokeDataFiller(object):
         """
         df = self.df
         # Filling with default values
-        for field in self.default_map:
+        for field in HeatStrokeDataFiller.default_map:
             if field not in df.columns:
                 logger.warning("(%s) missing from data-frame columns" % field)
                 continue
-            logger.info("Setting missing in \"%s\" to default: %s" % (field, self.default_map[field]))
-            default_value = self.default_map[field]
+            logger.info("Setting missing in \"%s\" to default: %s" % (field, HeatStrokeDataFiller.default_map[field]))
+            default_value = HeatStrokeDataFiller.default_map[field]
 
             where = HeatStrokeDataFiller.find_where_missing(df, field, find_nan=True, find_str=False)
             how_many_to_fill = np.sum(where)
             df[field].loc[where] = np.array([default_value] * how_many_to_fill)
 
         # Filling with Zeros
-        for field in self.fields_to_fill_with_zero:
+        for field in HeatStrokeDataFiller.fields_to_fill_with_zero:
             if field not in df.columns:
                 logger.warning("\"%s\" missing from columns" % field)
                 continue
@@ -125,7 +143,7 @@ class HeatStrokeDataFiller(object):
             df[field].loc[where] = np.zeros(how_many_to_fill)
 
         # Filling in columns with the average from the rest of the column
-        for field in self.fields_to_fill_with_average:
+        for field in HeatStrokeDataFiller.fields_to_fill_with_average:
             if field not in df.columns:
                 logger.warning("\"%s\" missing from data-frame columns" % field)
                 continue
@@ -140,7 +158,7 @@ class HeatStrokeDataFiller(object):
             how_many_to_fill = np.sum(where)
             df[field].loc[where] = mean + std * np.random.random(how_many_to_fill)
 
-        fields_not_modified = set(df.columns) - set(self.default_map.keys()) - self.fields_to_fill_with_zero - self.fields_to_fill_with_zero
+        fields_not_modified = set(df.columns) - set(HeatStrokeDataFiller.default_map.keys()) - HeatStrokeDataFiller.fields_to_fill_with_zero - HeatStrokeDataFiller.fields_to_fill_with_zero
         logger.info("Fields not modified: %s" % fields_not_modified.__str__())
         return df
 
@@ -158,7 +176,7 @@ class HeatStrokeDataFiller(object):
 
     def fix_temperature_fields(self):
         # Converts temperature fileds to always be celsius
-        for temp_field in self.temp_fields:
+        for temp_field in HeatStrokeDataFiller.temp_fields:
             where_string = HeatStrokeDataFiller.find_where_string(self.df, temp_field)
             self.df[temp_field][where_string] = 39
             farenheight_valus = self.df[temp_field] > 70
@@ -176,8 +194,8 @@ class HeatStrokeDataFiller(object):
         for field in self.df.columns:
             for i in range(self.df.shape[0]):
                 value = self.df[field][i]
-                if type(value) is str and value.replace("\"", "") in self.keyword_map:
-                    self.df[field].loc[i] = self.keyword_map[value.replace("\"", "")]
+                if type(value) is str and value.replace("\"", "") in HeatStrokeDataFiller.keyword_map:
+                    self.df[field].loc[i] = HeatStrokeDataFiller.keyword_map[value.replace("\"", "")]
 
     def fix_range_fields(self):
         for field in self.df.columns:
@@ -202,14 +220,17 @@ class HeatStrokeDataFiller(object):
         self.df.to_csv("~/Desktop/test.csv")
         self.fix_percentage_fields()
 
-
-    def trim(self):
+    def filter_data(self):
         """
         Returns the same data frame but only with the specified columns
         :param df: A pandas data frame
         :return: Another pandas dataframe but only with the important columns
         """
-        return self.df[self.important_features]
+        self.df = self.df[HeatStrokeDataFiller.important_features]
+
+    def make_and_append_negative_data(self):
+        negative_df = self.get_negative_data()
+        self.df = pd.concat((self.df, negative_df))
 
     @staticmethod
     def find_where_missing(df, field, find_nan=True, find_str=True):
@@ -236,7 +257,7 @@ class HeatStrokeDataFiller(object):
 
     def write_data(self):
         # For saving the data frame to file
-        self.df.to_csv(self.output_file)
+        self.df.to_csv(self.filled_output_file)
 
     @staticmethod
     def create_fake_test_data(N=200, num_fts=20):
@@ -257,27 +278,21 @@ class HeatStrokeDataFiller(object):
         return df
 
     @staticmethod
-    def get_resting_data(N=30):
-        # todo
-        pass
-    @staticmethod
-    def get_exercising_data(N=30):
-        # todo
-        pass
-    @staticmethod
-    def get_negative_data():
-        # todo
-        pass
+    def get_negative_data(N=500):
+        negative_df = pd.DataFrame(columns=HeatStrokeDataFiller.important_features, index=np.arange(N))
+        for field in negative_df.columns:
+
+
 
     def remove_strings(self):
         for field in self.df.columns:
             where = np.array(list(map(type, self.df[field]))) == str
             if any(where):
-                if field in self.default_map.keys():
-                    self.df[field][where] = self.default_map[field]
-                elif field in self.fields_to_fill_with_zero:
+                if field in HeatStrokeDataFiller.default_map.keys():
+                    self.df[field][where] = HeatStrokeDataFiller.default_map[field]
+                elif field in HeatStrokeDataFiller.fields_to_fill_with_zero:
                     self.df[field].loc[where] = 0
-                elif field in self.fields_to_fill_with_average:
+                elif field in HeatStrokeDataFiller.fields_to_fill_with_average:
                     data = self.df[field][np.invert(where)]
                     self.df[field].loc[where] = np.mean(data) + np.std(data) * np.random.random(len(data))
 
