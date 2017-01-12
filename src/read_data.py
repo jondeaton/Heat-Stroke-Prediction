@@ -158,15 +158,12 @@ class HeatStrokeDataFiller(object):
                             pass
 
     def fix_temperature_fields(self):
+        # Converts temperature fileds to always be celsius
         for temp_field in self.temp_fields:
-            where_bad_type = [type(self.df[temp_field][i]) is str for i in range(self.df.shape[0])]
-            # print(where_bad_type)
-            print(self.df[temp_field][where_bad_type])
-
-            where_hot = self.df[temp_field] == 'hot'
-            self.df[temp_field].loc[where_hot] = 39
-            # farenheight_valus = self.df[temp_field] > 70
-            # self.df[temp_field] = (self.df[temp_field] - 32.0) * 100.0 / (212 - 32)
+            where_string = HeatStrokeDataFiller.find_where_string(self.df, temp_field)
+            self.df[temp_field][where_string] = 39
+            farenheight_valus = self.df[temp_field] > 70
+            self.df[temp_field].loc[farenheight_valus] = (self.df[temp_field][farenheight_valus] - 32.0) * 100.0 / (212 - 32)
 
     def fix_fields(self):
         males = self.df["Sex"] == "M"
@@ -174,8 +171,6 @@ class HeatStrokeDataFiller(object):
 
         self.fix_bounded_values()
         self.fix_temperature_fields()
-
-
 
     def trim(self):
         """
@@ -198,6 +193,14 @@ class HeatStrokeDataFiller(object):
                 except TypeError:
                     logger.error("Type error (%s) for: %s" % (type(df[field][i]), df[field][i]))
                     pass
+        return where
+
+    @staticmethod
+    def find_where_string(df, field):
+        where = np.zeros(df.shape[0], dtype=bool)
+        for i in range(df.shape[0]):
+            if type(df[field][i]) is str:
+                    where[i] = True
         return where
 
     def write_data(self):
