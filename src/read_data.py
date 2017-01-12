@@ -6,10 +6,13 @@ This is a module used for reading and completing data
 """
 
 import os
+import argparse
 import string
 import logging
 import numpy as np
 import pandas as pd
+import warnings
+
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
@@ -20,9 +23,9 @@ defaults = {'Case': 1, "Source (Paper)":0, 'Case ID': 1,
             'Geographical location': "None", 'Environmental temperature (C)': 90,
             'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
             'Heat Index (HI)': 0, 'Time of day': 12.00, 'Time of year (month)': 6,
-            'Age': 30, 'Weight': 140, 'BMI': 26.5, 'Nationality':'None',
+            'Age': 30, 'Weight (kg)': 140, 'BMI': 26.5, 'Nationality':'None',
             'Patient temperature': 37,
-            'Rectal temperature': 37, 'Respiratory rate': 16, 'Daily Ingested Water (L)': 3.7,
+            'Rectal temperature (deg C)': 37, 'Respiratory rate': 16, 'Daily Ingested Water (L)': 3.7,
             'Sweating': 0.5, 'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': 1,
             'Heart / Pulse rate (b/min)': 80, '(mean) Arterial blood pressure (mmHg)': 120,
             'Systolic BP': 120, 'Diastolic BP': 80, 'Arterial oxygen saturation': 95,
@@ -32,10 +35,10 @@ defaults = {'Case': 1, "Source (Paper)":0, 'Case ID': 1,
             'Platelets': 300000,  'Initial treatment': "None", 'Temperature cooled to (C)': 37}
 
 # Fields to fill with zero value
-fill_with_zero = ['Heat Stroke', 'Complications', 'Exrtional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise']
-fill_with_zero += ['Died / recovered', 'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications']
+fill_with_zero = ['Heat stroke', 'Complications', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise']
+fill_with_zero += ['Died (1) / recovered (0)', 'Time to death (hours)', 'Heat stroke', 'Mental state', 'Complications']
 fill_with_zero += ['Sex', 'Exposure to sun', 'Cardiovascular disease history','Sickle Cell Trait (SCT)']
-fill_with_zero += ['Skin rash', 'Hyperpotassemia', 'Diarrhea', 'Bronchospasm', 'Decrebrate convulsion', 'Hot/dry skin']
+fill_with_zero += ['Skin rash', 'Diarrhea', 'Bronchospasm', 'Decrebrate convulsion', 'Hot/dry skin']
 fill_with_zero += ['Cerebellar ataxia', 'Myocardial infarction', 'Hepatic failure','Pulmonary congestion']
 fill_with_zero += ['Duration of abnormal temperature']
 
@@ -50,9 +53,10 @@ def read_and_filter_data(excel_file="Literature_Data.xlsx"):
     This function reads data from an excel file and ompleted missing data
     :return: A pandas data frame containing positive and negative datapoints
     """
-    df = pd.read_excel(excel_file)
-    negative_df = get_negative_data()
-    df = pd.concat((df, negative_df))
+    df = pd.read_excel(excel_file, sheetname="Individualized Data")
+    #negative_df = get_negative_data()
+    # print(negative_df)
+    # df = pd.concat((df, negative_df))
     fill_missing(df)
     return df
 
@@ -95,25 +99,33 @@ def fill_missing(df):
             logger.warning("(%s) missing from data-frame columns" % field)
             continue
         logger.info("Setting missing in (%s) to default: %s" % (field, defaults[field]))
-        where = df[field] == np.nan
-        df[field][where] = np.ones(np.sum(where)) * defaults[field]
+        default_value = defaults[field]
+        where = np.zeros(len(df[field]), dtype=bool)
+        try:
+            where = np.isnan(list(df[field]))
+        how_many_to_fill = np.sum(where)
+        df[field].loc[where] = np.array([default_value] * how_many_to_fill)
+        write_data(df, "~/Desktop/test.csv")
 
     # Filling with Zeros
     for field in fill_with_zero:
         if field not in df.columns:
             logger.warning("(%s) missing from data-frame columns" % field)
             continue
-        logger.info("Setting missing in (%s) to zero" % field)
-        where = df[field] == np.nan
+        logger.info("Setting missing in (%s) to 0" % field)
+        where = np.isnan(list(df[field]))
         where &= np.array(list(map(type, df[field]))) == str
-        df[field][where] = np.zeros(np.sum(where))
+        how_many_to_fill = np.sum(where)
+        df[field].loc[where] = np.zeros(how_many_to_fill)
+        write_data(df, "~/Desktop/test.csv")
 
     # Filling in columns with the average from the rest of the column
     for field in fill_with_average:
         if field not in df.columns:
             logger.warning("(%s) missing from data-frame columns" % field)
             continue
-        where = df[field] != np.nan
+        where = np.invert(np.isnan(list(df[field])))
+        #where = df[field] != np.nan
         where &= np.array(list(map(type, df[field]))) != str
         data = df[field][where]
         mean = np.mean(data)
@@ -121,7 +133,12 @@ def fill_missing(df):
         if mean == np.nan or std == np.nan:
             mean, std = (0, 0)
         logger.info("Setting missing in (%s) with: %.3f +/- %.3f" % (field, mean, std))
-        df[field][np.invert(where)] = mean + std * np.random.random(len(data))
+        how_many_to_fill = np.sum(np.invert(where))
+        df[field].loc[np.invert(where)] = mean + std * np.random.random(how_many_to_fill)
+        write_data(df, "~/Desktop/test.csv")
+
+    write_data(df, "~/Desktop/test.csv")
+    exit()
 
     fields_not_modified = set(df.columns) - set(defaults.keys()) - set(fill_with_average) - set(fill_with_zero)
     logger.info("Fields not modified: %s" % fields_not_modified.__str__())
@@ -146,10 +163,10 @@ def trim(df):
     features = pd.Index(['Heat stroke', 'Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise'
                         , 'Environmental temperature (C)', 'Humidity 8am', 'Humidity noon', 'Humidity 8pm', 'Barometric Pressure',
                          'Heat Index (HI)', 'Time of day', 'Time of year (month)',
-                         'Exposure to sun', 'Sex', 'Age', 'Weight', 'BMI', 'Nationality',
+                         'Exposure to sun', 'Sex', 'Age', 'Weight (kg)', 'BMI', 'Nationality',
                          'Cardiovascular disease history', 'Sickle Cell Trait (SCT)',
                          'Duration of abnormal temperature', 'Patient temperature',
-                         'Rectal temperature', 'Respiratory rate', 'Daily Ingested Water (L)',
+                         'Rectal temperature (deg C)', 'Respiratory rate', 'Daily Ingested Water (L)',
                          'Sweating', 'Skin rash',
                          'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
                          'Heart / Pulse rate (b/min)', '(mean) Arterial blood pressure (mmHg)',
@@ -161,10 +178,30 @@ def trim(df):
     return df[features]
 
 def main():
+
+    script_description = "This script reads and fills in data from files"
+    parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', help='Debug console')
+    args = parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    elif args.verbose:
+        logger.setLevel(logging.INFO)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    else:
+        warnings.filterwarnings('ignore')
+        logger.setLevel(logging.WARNING)
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+
+
+
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     excel_file = os.path.join(project_dir, "data", "Literature_Data.xlsx")
     df = read_and_filter_data(excel_file=excel_file)
-    print(df)
     write_data(df, os.path.join(project_dir, "data", "filtered_data.csv"))
 
 if __name__ == "__main__":
