@@ -2,7 +2,10 @@
 """
 read_data.py
 
-This is a module used for reading and completing data
+This is a script that is used for transforming data gathered from case studies of heat stroke
+into a foramt that can be used in a logistic regression model
+
+This script takes as input an excel file that contains data, fills this d
 """
 
 import os
@@ -13,16 +16,19 @@ import numpy as np
 import pandas as pd
 import warnings
 import datetime
-import time
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
+__author__ = "Jon Deaton"
+__email__ = "jdeaton@stanford.edu"
+
 class HeatStrokeDataFiller(object):
 
     # Physiologically Normal Ranges
     # Anything that is a Nan (empty) gets replaced with these
+    # TODO: TURN THIS INTO A MAP FROM FEATURE TO DISTRIBUTION LIKE negative_defaults
     default_map = {'Case': 1, "Source (Paper)": 0, 'Case ID': 1,
         'Geographical location': "None", 'Environmental temperature (C)': 90,
         'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
@@ -54,6 +60,7 @@ class HeatStrokeDataFiller(object):
     keyword_map = {"hot": 39, "humid": 1, "hydrated": 5, "low": 0}
 
     # Each negative default has a distribution from which N points are drawn
+    # TODO: UPDATE THESE TO BE MORE REALISTIC
     negative_default = {'Heat stroke': lambda N: np.zeros(N),
                         'Exertional (1) vs classic (0)': lambda N: np.zeros(N),
                         'Dehydration': lambda N: np.zeros(N),
@@ -86,18 +93,24 @@ class HeatStrokeDataFiller(object):
     negative_data_size = 10000
 
     def __init__(self):
+        """
+        Constructor method. This sets up some file locations and instance fields.
+        :return: None
+        """
         self.project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.excel_file = os.path.join(self.project_dir, "data", "Literature_Data.xlsx")
         self.spreadsheet_name = "Individualized Data"
         self.filled_output_file = os.path.join(self.project_dir, "data", "filled_data.csv")
         self.output_file = os.path.join(self.project_dir, "data", "final.csv")
         self.use_fake_data = False
+        # This instance value "self.df" is the pandas DataFrame that contains all of the data
+        # from the literature case studies. Manipulating this field is the purpose of this class.
         self.df = None
 
     def read_and_filter_data(self):
         """
-        This function reads data from an excel file and ompleted missing data
-        :return: A pandas data frame containing positive and negative datapoints
+        This function reads data from an excel file into a pandas DataFrame, formats it, and adds negatives to it
+        :return: A pandas DataFrame containing positive and negative data pointss
         """
         if self.use_fake_data:
             return HeatStrokeDataFiller.create_fake_test_data()
@@ -120,8 +133,8 @@ class HeatStrokeDataFiller(object):
 
     def fill_missing(self):
         """
-        This function fills missing values
-        :return:
+        This function fills the missing values in the pandas DataFrame containing the data
+        :return: None
         """
         df = self.df
         # Filling with default values
@@ -218,7 +231,7 @@ class HeatStrokeDataFiller(object):
         This function changes any nationality that isn't "white" or "none" to a 1 (at risk)
         :return: None
         """
-        # TODO: FIX THIS THIS IS SLOW AS BALLS @@@@@@@@@@@
+        # TODO: FIX THIS! THIS IS SO SLOW
         for i in range(self.df.shape[0]):
             where = self.df["Nationality"] == "None"
             where &= self.df["Nationality"] == "white"
@@ -226,6 +239,10 @@ class HeatStrokeDataFiller(object):
             self.df["Nationality"].loc[np.invert(where)] = 1
 
     def fix_time_fields(self):
+        """
+        This function fixes time fields that may have been interpreted by pandas as datetime instances
+        :return: None
+        """
         time_fields = {"Time of day": lambda time: time.hour, "Time of year (month)": lambda time: time.month}
         for time_field in time_fields.keys():
             for i in range(self.df.shape[0]):
@@ -234,12 +251,16 @@ class HeatStrokeDataFiller(object):
                     self.df[time_field].loc[i] = time_fields[time_field](value)
 
     def combine_fields(self):
+        """
+        This function deals with combining several fields to create new fields.
+        :return: None
+        """
         humidity_fields = ['Humidity 8am', 'Humidity noon', 'Humidity 8pm']
         self.df['Relative Humidity'] = np.mean(self.df[humidity_fields], axis=1)
 
     def fix_fields(self):
         """
-        This function fixes all the fields that have bad data in them
+        This function fixes all the fields that have bad data in them that needs to be transformed
         :return: None
         """
         males = self.df["Sex"] == "M"
@@ -269,8 +290,10 @@ class HeatStrokeDataFiller(object):
         self.df = self.df[HeatStrokeDataFiller.important_features]
 
     def make_and_append_negative_data(self):
-        # This function generates some negative data points from default distributions
-        # and appends that to the data frame
+        """
+        This function generates some negative data points from default distributions and appends that to the data frame
+        :return: None
+        """
         negative_df = self.get_negative_data()
         self.df = pd.concat((self.df, negative_df))
 
@@ -291,6 +314,7 @@ class HeatStrokeDataFiller(object):
 
     @staticmethod
     def find_where_string(df, field):
+        # Finds where in the DataFrame there are strings in a certain column
         where = np.zeros(df.shape[0], dtype=bool)
         for i in range(df.shape[0]):
             if type(df[field][i]) is str:
