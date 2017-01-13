@@ -12,11 +12,12 @@ import logging
 import numpy as np
 import pandas as pd
 import warnings
+import datetime
+import time
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
+logger.setLevel(logging.WARNING)
 
 class HeatStrokeDataFiller(object):
 
@@ -58,7 +59,7 @@ class HeatStrokeDataFiller(object):
                         'Dehydration': lambda N: np.zeros(N),
                         'Strenuous exercise': lambda N: np.zeros(N),
                         'Environmental temperature (C)': lambda N: 20 + 5 * np.random.random(N),
-                        'Relative Humidity': lambda N: 10 + 10 * np.random.random(N),
+                        'Relative Humidity': lambda N: 0.1 + 0.1 * np.random.random(N),
                         'Barometric Pressure': lambda N: 29.97 * np.ones(N),
                         'Heat Index (HI)': lambda N: 20 + 5 * np.random.random(N),
                         'Time of day': lambda N: 9 + 8 * np.random.random(N),
@@ -82,6 +83,7 @@ class HeatStrokeDataFiller(object):
                         'Diastolic BP': lambda N: 80 + 10 * np.random.random(N)}
 
     important_features = pd.Index(negative_default.keys())
+    negative_data_size = 10000
 
     def __init__(self):
         self.project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -100,15 +102,22 @@ class HeatStrokeDataFiller(object):
         if self.use_fake_data:
             return HeatStrokeDataFiller.create_fake_test_data()
 
+        logger.info("Reading data from file: %s..." % os.path.basename(self.excel_file))
         self.df = pd.read_excel(self.excel_file, sheetname=self.spreadsheet_name)
+        logger.info("Fixing time fields...")
+        self.fix_time_fields()
+        logger.info("Filling missing data...")
         self.fill_missing()
-        self.df.to_csv("~/Desktop/filled.csv")
+        logger.info("Fixing fields...")
         self.fix_fields()
-        self.df.to_csv("~/Desktop/fixed.csv")
+        logger.info("Filtering data features...")
         self.filter_data()
-
+        logger.info("Generating negative data...")
         self.make_and_append_negative_data()
-        self.df.to_csv("~/Desktop/concat.csv")
+
+        logger.info("Casting to float...")
+        self.df.to_csv("~/Desktop/fuck.csv")
+        self.df = self.df.astype(float)
 
     def fill_missing(self):
         """
@@ -121,7 +130,7 @@ class HeatStrokeDataFiller(object):
             if field not in df.columns:
                 logger.warning("(%s) missing from data-frame columns" % field)
                 continue
-            logger.info("Setting missing in \"%s\" to default: %s" % (field, HeatStrokeDataFiller.default_map[field]))
+            logger.debug("Setting missing in \"%s\" to default: %s" % (field, HeatStrokeDataFiller.default_map[field]))
             default_value = HeatStrokeDataFiller.default_map[field]
 
             where = HeatStrokeDataFiller.find_where_missing(df, field, find_nan=True, find_str=False)
@@ -133,7 +142,7 @@ class HeatStrokeDataFiller(object):
             if field not in df.columns:
                 logger.warning("\"%s\" missing from columns" % field)
                 continue
-            logger.info("Setting missing in \"%s\" to 0" % field)
+            logger.debug("Setting missing in \"%s\" to 0" % field)
 
             where = HeatStrokeDataFiller.find_where_missing(df, field, find_nan=True, find_str=True)
             how_many_to_fill = np.sum(where)
@@ -151,12 +160,12 @@ class HeatStrokeDataFiller(object):
             std = np.std(data)
             if mean == np.nan or std == np.nan:
                 mean, std = (0, 0)
-            logger.info("Setting missing in \"%s\" with: %.3f +/- %.3f" % (field, mean, std))
+            logger.debug("Setting missing in \"%s\" with: %.3f +/- %.3f" % (field, mean, std))
             how_many_to_fill = np.sum(where)
             df[field].loc[where] = mean + std * np.random.random(how_many_to_fill)
 
         fields_not_modified = set(df.columns) - set(HeatStrokeDataFiller.default_map.keys()) - HeatStrokeDataFiller.fields_to_fill_with_zero - HeatStrokeDataFiller.fields_to_fill_with_zero
-        logger.info("Fields not modified: %s" % fields_not_modified.__str__())
+        logger.debug("Fields not modified: %s" % fields_not_modified.__str__())
         return df
 
     def fix_bounded_values(self):
@@ -205,21 +214,51 @@ class HeatStrokeDataFiller(object):
                     except:
                         pass
 
+    def fix_nationality_field(self):
+        """
+        This function changes any nationality that isn't "white" or "none" to a 1 (at risk)
+        :return: None
+        """
+        # TODO: FIX THIS THIS IS SLOW AS BALLS @@@@@@@@@@@
+        for i in range(self.df.shape[0]):
+            where = self.df["Nationality"] == "None"
+            where &= self.df["Nationality"] == "white"
+            self.df["Nationality"].loc[where] = 0
+            self.df["Nationality"].loc[np.invert(where)] = 1
+
+    def fix_time_fields(self):
+        time_fields = {"Time of day": lambda time: time.hour, "Time of year (month)": lambda time: time.month}
+        for time_field in time_fields.keys():
+            for i in range(self.df.shape[0]):
+                value = self.df[time_field][i]
+                if type(value) is datetime.time or type(value) is datetime.datetime:
+                    self.df[time_field].loc[i] = time_fields[time_field](value)
+
     def combine_fields(self):
         humidity_fields = ['Humidity 8am', 'Humidity noon', 'Humidity 8pm']
         self.df['Relative Humidity'] = np.mean(self.df[humidity_fields], axis=1)
 
     def fix_fields(self):
-        # Fixed values that are bad
+        """
+        This function fixes all the fields that have bad data in them
+        :return: None
+        """
         males = self.df["Sex"] == "M"
         self.df["Sex"] = np.array(males, dtype=int)
 
+        logger.info("Fixing bounded values...")
         self.fix_bounded_values()
+        logger.info("Fixing range values...")
         self.fix_range_fields()
+        logger.info("Fixing keyworded fields...")
         self.fix_keyword_fields()
+        logger.info("Fixing temperature fields...")
         self.fix_temperature_fields()
-        self.df.to_csv("~/Desktop/test.csv")
+        logger.info("Fixing nationality fields...")
+        self.fix_nationality_field()
+        logger.info("Fixing percentage fields...")
         self.fix_percentage_fields()
+        logger.info("Combining fields...")
         self.combine_fields()
 
     def filter_data(self):
@@ -247,7 +286,7 @@ class HeatStrokeDataFiller(object):
                 try:
                     where[i] |= np.isnan(df[field][i])
                 except TypeError:
-                    logger.error("Type error (%s) for: %s" % (type(df[field][i]), df[field][i]))
+                    logger.error("Type error: type %s for %s in \"%s\"" % (type(df[field][i]), df[field][i], field))
                     pass
         return where
 
@@ -282,7 +321,7 @@ class HeatStrokeDataFiller(object):
         return df
 
     @staticmethod
-    def get_negative_data(N=500):
+    def get_negative_data(N=None):
         """
         This function generates a pandas DataFrame with N elements each column/field. The data points are generated
         from functions (stored in the hash HeatStrokeDataFiller.negative_default) that each will take a parameter N
@@ -290,6 +329,10 @@ class HeatStrokeDataFiller(object):
         :param N: The number of data points
         :return: A pandas DataFrame
         """
+        if N is None and type(HeatStrokeDataFiller.negative_data_size) is int:
+            N = HeatStrokeDataFiller.negative_data_size
+        else:
+            N = 500
         negative_df = pd.DataFrame(columns=HeatStrokeDataFiller.important_features, index=np.arange(N))
         for field in negative_df.columns:
             parameter_distribution = HeatStrokeDataFiller.negative_default[field]
@@ -316,6 +359,7 @@ def main():
         logger.setLevel(logging.DEBUG)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
     elif args.verbose:
+        warnings.filterwarnings('ignore')
         logger.setLevel(logging.INFO)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
     else:
