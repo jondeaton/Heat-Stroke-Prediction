@@ -5,7 +5,9 @@ read_data.py
 This is a script that is used for transforming data gathered from case studies of heat stroke
 into a foramt that can be used in a logistic regression model
 
-This script takes as input an excel file that contains data, fills this d
+This script takes as input an excel file that contains data, fills in missing values with
+physiologally normal values, makes negative cases using physiologically normal ranges,
+and then saves the resulting data to file for later use.
 """
 
 import os
