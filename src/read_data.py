@@ -116,7 +116,6 @@ class HeatStrokeDataFiller(object):
         self.make_and_append_negative_data()
 
         logger.info("Casting to float...")
-        self.df.to_csv("~/Desktop/fuck.csv")
         self.df = self.df.astype(float)
 
     def fill_missing(self):
