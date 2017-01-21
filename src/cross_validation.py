@@ -57,7 +57,6 @@ class CrossValidator(object):
 
         colors = cycle(['cyan', 'indigo', 'seagreen', 'yellow', 'blue', 'darkorange'])
         lw = 2
-
         fold = 0
         mean_tpr = 0.0
         mean_fpr = np.linspace(0, 1, 100)
@@ -78,10 +77,12 @@ class CrossValidator(object):
         plt.plot(mean_fpr, mean_tpr, color='g', linestyle='--', label='Mean ROC (area = %0.2f)' % mean_auc, lw=lw)
         plt.xlim([0, 1])
         plt.ylim([0, 1])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver operating characteristic example')
-        plt.legend(loc="lower right")
+        plt.grid(True)
+        hfont = {'fontname':'Helvetica'}
+        plt.xlabel('False Positive Rate', fontsize=12, **hfont)
+        plt.ylabel('True Positive Rate', fontsize=12, **hfont)
+        plt.title('%d-Fold Cross Validation ROC' % self.N_fold, fontsize=12, **hfont)
+        plt.legend(fontsize=8, loc='lower right', title="Legend",  fancybox=True)
         try:
             output_file = os.path.join(self.output_directory, self.roc_filename)
         except:
@@ -125,6 +126,9 @@ def main():
     reader.use_fake_data = args.fake
     reader.read_and_filter_data()
     logger.info("Read data into DataFrame.")
+    if not reader.use_fake_data:
+        logger.info("Saving data to file: %s" % reader.filled_output_file)
+        reader.write_data()
 
     cross_validator = CrossValidator()
     cross_validator.df = reader.df
