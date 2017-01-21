@@ -91,6 +91,12 @@ class HeatStrokeDataFiller(object):
                         'Systolic BP': lambda N: 110 + 10 * np.random.random(N),
                         'Diastolic BP': lambda N: 80 + 10 * np.random.random(N)}
 
+    positive_default = negative_default
+    positive_default['Heat stroke'] = lambda N: np.ones(N)
+    positive_default['Exertional (1) vs classic (0)'] = lambda N: np.random.random(N) > 0
+    positive_default['Patient temperature'] = lambda N: 38.1 + 2 * np.random.random(N)
+    positive_default['Rectal temperature (deg C)'] = lambda N: 38.1 + 2 * np.random.random(N)
+
     important_features = pd.Index(negative_default.keys())
     negative_data_size = 10000
 
@@ -143,7 +149,7 @@ class HeatStrokeDataFiller(object):
         """
         df = self.df
         # Filling with default values
-        for field in HeatStrokeDataFiller.default_map:
+        for field in HeatStrokeDataFiller.default_map or field in HeatStrokeDataFiller.positive_default:
             if field not in df.columns:
                 logger.warning("(%s) missing from data-frame columns" % field)
                 continue
@@ -152,7 +158,13 @@ class HeatStrokeDataFiller(object):
 
             where = HeatStrokeDataFiller.find_where_missing(df, field, find_nan=True, find_str=False)
             how_many_to_fill = np.sum(where)
-            df[field].loc[where] = np.array([default_value] * how_many_to_fill)
+            if field in HeatStrokeDataFiller.positive_default:
+                # Use default positive dietributions
+                distribution = HeatStrokeDataFiller.positive_default[field]
+                df[field].loc[where] = distribution(how_many_to_fill)
+            else:
+                # Use default values
+                df[field].loc[where] = np.array([default_value] * how_many_to_fill)
 
         # Filling with Zeros
         for field in HeatStrokeDataFiller.fields_to_fill_with_zero:
@@ -208,10 +220,8 @@ class HeatStrokeDataFiller(object):
     def fix_percentage_fields(self):
         self.percentage_fields = {"Humidity 8am", "Humidity noon", "Humidity 8pm"}
         for field in self.percentage_fields:
-            for i in range(self.df.shape[0]):
-                value = self.df[field][i]
-                if value > 1:
-                    self.df[field].loc[i] = value / 100
+            where = self.df[field] > 1
+            self.df[field].loc[where] = self.df[field][where] / 100
 
     def fix_keyword_fields(self):
         for field in self.df.columns:
@@ -236,12 +246,10 @@ class HeatStrokeDataFiller(object):
         This function changes any nationality that isn't "white" or "none" to a 1 (at risk)
         :return: None
         """
-        # TODO: FIX THIS! THIS IS SO SLOW
-        for i in range(self.df.shape[0]):
-            where = self.df["Nationality"] == "None"
-            where &= self.df["Nationality"] == "white"
-            self.df["Nationality"].loc[where] = 0
-            self.df["Nationality"].loc[np.invert(where)] = 1
+        where = self.df["Nationality"] == "None"
+        where &= self.df["Nationality"] == "white"
+        self.df["Nationality"].loc[where] = 0
+        self.df["Nationality"].loc[np.invert(where)] = 1
 
     def fix_time_fields(self):
         """
@@ -331,7 +339,7 @@ class HeatStrokeDataFiller(object):
         self.df.to_csv(self.filled_output_file)
 
     @staticmethod
-    def create_fake_test_data(N=200, num_fts=20):
+    def create_fake_test_data(N=2000, num_fts=20):
         """
         This function is for getting FAKE data for testing
         :param N: Number of positive and negative data poitns
