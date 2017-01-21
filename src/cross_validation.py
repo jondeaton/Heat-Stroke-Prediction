@@ -35,6 +35,7 @@ class CrossValidator(object):
         self.roc_filename = "roc_curve.svg"
         self.N_fold = 6
         self.df = None
+        self.cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
 
     def perform_cross_validation(self):
         """
@@ -45,11 +46,12 @@ class CrossValidator(object):
         y = np.array(self.df[self.outcome_field])
         X = np.array(self.df.drop(self.outcome_field, axis=1))
 
-        scores = cross_val_score(classifier, X, y, cv=5)
-        print(scores)
-
         logger.info("Cross Validating...")
-        predicted = cross_val_predict(classifier, X, y, cv=self.N_fold)
+
+        scores = cross_val_score(classifier, X, y, cv=self.cv)
+        predicted = cross_val_predict(classifier, X, y, cv=self.cv)
+
+        print("Scores: %s" % scores)
         print("Prediction Accuracy: %f" % metrics.accuracy_score(self.df[self.outcome_field], predicted))
         print("Scoring accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
@@ -60,8 +62,7 @@ class CrossValidator(object):
         mean_tpr = 0.0
         mean_fpr = np.linspace(0, 1, 100)
 
-        cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
-        for (train, test), color in zip(cv.split(X, y), colors):
+        for (train, test), color in zip(self.cv.split(X, y), colors):
             probas = classifier.fit(X[train], y[train]).predict_proba(X[test])
             fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
             mean_tpr += interp(mean_fpr, fpr, tpr)
@@ -71,7 +72,7 @@ class CrossValidator(object):
             fold += 1
 
         plt.plot([0, 1], [0, 1], linestyle='--', lw=lw, color='k', label='Chance')
-        mean_tpr /= cv.get_n_splits(X, y)
+        mean_tpr /= self.cv.get_n_splits(X, y)
         mean_tpr[-1] = 1.0
         mean_auc = auc(mean_fpr, mean_tpr)
         plt.plot(mean_fpr, mean_tpr, color='g', linestyle='--', label='Mean ROC (area = %0.2f)' % mean_auc, lw=lw)
