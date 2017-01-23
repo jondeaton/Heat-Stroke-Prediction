@@ -12,8 +12,9 @@ import numpy as np
 import pandas as pd
 from sklearn import linear_model
 from sklearn import metrics
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import cross_val_predict
+import sklearn.model_selection
+#from sklearn.model_selection import cross_val_score
+#from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
@@ -22,6 +23,7 @@ from scipy import interp
 import read_data
 import warnings
 import os
+import copy
 
 logging.basicConfig(format='[%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
@@ -36,6 +38,9 @@ class CrossValidator(object):
         self.N_fold = 6
         self.df = None
         self.cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
+        self.roc_colors = cycle(['cyan', 'indigo', 'seagreen', 'yellow', 'blue', 'darkorange'])
+        self.use_all_fields = False
+        self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
 
     def perform_cross_validation(self):
         """
@@ -44,31 +49,35 @@ class CrossValidator(object):
         """
         classifier = linear_model.LogisticRegression(C=1e5)
         y = np.array(self.df[self.outcome_field])
-        X = np.array(self.df.drop(self.outcome_field, axis=1))
+
+        X = self.df.drop(self.outcome_field, axis=1)
+        if not self.use_all_fields:
+            X  = X[self.fields_used]
+        X = np.array(X)
 
         logger.info("Cross Validating...")
-
-        scores = cross_val_score(classifier, X, y, cv=self.cv)
-        predicted = cross_val_predict(classifier, X, y, cv=self.cv)
+        scores = sklearn.model_selection.cross_val_score(classifier, X, y, cv=self.cv)
+        predicted = sklearn.model_selection.cross_val_predict(classifier, X, y, cv=self.cv)
 
         print("Scores: %s" % scores)
         print("Prediction Accuracy: %f" % metrics.accuracy_score(self.df[self.outcome_field], predicted))
         print("Scoring accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
-        colors = cycle(['cyan', 'indigo', 'seagreen', 'yellow', 'blue', 'darkorange'])
+        logger.info("Cross validating for ROC curve...")
         lw = 2
-        fold = 0
+        which_fold = 0
         mean_tpr = 0.0
         mean_fpr = np.linspace(0, 1, 100)
 
-        for (train, test), color in zip(self.cv.split(X, y), colors):
-            probas = classifier.fit(X[train], y[train]).predict_proba(X[test])
+        for (train, test), color in zip(self.cv.split(X, y), self.roc_colors):
+            fitted = classifier.fit(X[train], y[train])
+            probas = fitted.predict_proba(X[test])
             fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
             mean_tpr += interp(mean_fpr, fpr, tpr)
             mean_tpr[0] = 0.0
             roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, lw=lw, color=color, label='ROC fold %d (area = %0.2f)' % (fold, roc_auc))
-            fold += 1
+            plt.plot(fpr, tpr, lw=lw, color=color, label='ROC fold %d (area = %0.2f)' % (which_fold, roc_auc))
+            which_fold += 1
 
         plt.plot([0, 1], [0, 1], linestyle='--', lw=lw, color='k', label='Chance')
         mean_tpr /= self.cv.get_n_splits(X, y)
@@ -88,6 +97,7 @@ class CrossValidator(object):
         except:
             output_file = self.roc_filename
         plt.savefig(output_file)
+        logger.info("ROC saved: %s", os.path.basename(output_file))
 
 def main():
 
@@ -102,7 +112,9 @@ def main():
     output_group.add_argument("-out", "--output", help="Output")
 
     options_group = parser.add_argument_group("Opitons")
-    options_group.add_argument("-f", "--fake",action="store_true", help="Use fake data")
+    options_group.add_argument("-f", "--fake", action="store_true", help="Use fake data")
+    options_group.add_argument('-p', '--prefiltered', action="store_true", help="Use pre-filtered data")
+    options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -124,14 +136,21 @@ def main():
 
     reader = read_data.HeatStrokeDataFiller()
     reader.use_fake_data = args.fake
-    reader.read_and_filter_data()
+
+    if args.prefiltered:
+        logger.info("Using prefiltered data from: %s" % os.path.basename(reader.filled_output_file))
+        reader.read_prefiltered_data()
+    else:
+        reader.read_and_filter_data()
     logger.info("Read data into DataFrame.")
-    if not reader.use_fake_data:
-        logger.info("Saving data to file: %s" % reader.filled_output_file)
+
+    if not reader.use_fake_data and not args.prefiltered:
+        logger.info("Saving data to file: %s" % os.path.basename(reader.filled_output_file))
         reader.write_data()
 
     cross_validator = CrossValidator()
-    cross_validator.df = reader.df
+    cross_validator.df = copy.deepcopy(reader.df)
+    cross_validator.use_all_fields = args.all_fields
 
     cross_validator.perform_cross_validation()
 

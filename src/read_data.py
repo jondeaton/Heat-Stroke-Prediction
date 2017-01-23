@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import warnings
 import datetime
+import copy
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
@@ -30,7 +31,6 @@ class HeatStrokeDataFiller(object):
 
     # Physiologically Normal Ranges
     # Anything that is a Nan (empty) gets replaced with these
-    # TODO: TURN THIS INTO A MAP FROM FEATURE TO DISTRIBUTION LIKE negative_defaults
     default_map = {'Case': 1, "Source (Paper)": 0, 'Case ID': 1,
         'Geographical location': "None", 'Environmental temperature (C)': 90,
         'Humidity 8am': 0.1, 'Humidity noon': 0.1, 'Humidity 8pm': 0.1, 'Barometric Pressure': 20,
@@ -91,14 +91,15 @@ class HeatStrokeDataFiller(object):
                         'Systolic BP': lambda N: 110 + 10 * np.random.random(N),
                         'Diastolic BP': lambda N: 80 + 10 * np.random.random(N)}
 
-    positive_default = negative_default
+    # Positive default values
+    positive_default = copy.copy(negative_default)
     positive_default['Heat stroke'] = lambda N: np.ones(N)
     positive_default['Exertional (1) vs classic (0)'] = lambda N: np.random.random(N) > 0
     positive_default['Patient temperature'] = lambda N: 38.1 + 2 * np.random.random(N)
     positive_default['Rectal temperature (deg C)'] = lambda N: 38.1 + 2 * np.random.random(N)
 
     important_features = pd.Index(negative_default.keys())
-    negative_data_size = 10000
+    negative_data_size = 200
 
     outcome_field = "Heat stroke"
 
@@ -117,10 +118,18 @@ class HeatStrokeDataFiller(object):
         # from the literature case studies. Manipulating this field is the purpose of this class.
         self.df = None
 
+
+    def read_prefiltered_data(self):
+        """
+        This function reads data from an already saved file
+        :return: None
+        """
+        self.df = pd.read_csv(self.filled_output_file)
+
     def read_and_filter_data(self):
         """
         This function reads data from an excel file into a pandas DataFrame, formats it, and adds negatives to it
-        :return: A pandas DataFrame containing positive and negative data pointss
+        :return: None
         """
         if self.use_fake_data:
             self.df = HeatStrokeDataFiller.create_fake_test_data()
@@ -149,6 +158,7 @@ class HeatStrokeDataFiller(object):
         """
         df = self.df
         # Filling with default values
+        logger.info("Filling from distributions...")
         for field in HeatStrokeDataFiller.default_map or field in HeatStrokeDataFiller.positive_default:
             if field not in df.columns:
                 logger.warning("(%s) missing from data-frame columns" % field)
@@ -167,6 +177,7 @@ class HeatStrokeDataFiller(object):
                 df[field].loc[where] = np.array([default_value] * how_many_to_fill)
 
         # Filling with Zeros
+        logger.info("Fillling with zeros...")
         for field in HeatStrokeDataFiller.fields_to_fill_with_zero:
             if field not in df.columns:
                 logger.warning("\"%s\" missing from columns" % field)
@@ -178,6 +189,7 @@ class HeatStrokeDataFiller(object):
             df[field].loc[where] = np.zeros(how_many_to_fill)
 
         # Filling in columns with the average from the rest of the column
+        logger.info("Filling with agerages...")
         for field in HeatStrokeDataFiller.fields_to_fill_with_average:
             if field not in df.columns:
                 logger.warning("\"%s\" missing from data-frame columns" % field)
