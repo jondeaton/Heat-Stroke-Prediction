@@ -13,8 +13,6 @@ import pandas as pd
 from sklearn import linear_model
 from sklearn import metrics
 import sklearn.model_selection
-#from sklearn.model_selection import cross_val_score
-#from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
