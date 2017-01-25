@@ -13,6 +13,7 @@ def main():
 	for port in ports:
 		try:
 			sys.stdout.write("Opening serial port: %s... " % port)
+			
 			ser = serial.Serial(port)
 			sys.stdout.write("Succes\n")
 		except:

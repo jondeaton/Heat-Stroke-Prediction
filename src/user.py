@@ -59,3 +59,5 @@ class MonitorUser(object):
 		self.nationality = 0 if user_attributes['nationality'] == "White" else 1
 		self.cardiovascular_disease_history = int(user_attributes['cardiovascular_disease_history'])
 		self.sickle_cell = int(user_attributes['sickle_cell'])
+
+
