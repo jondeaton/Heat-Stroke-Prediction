@@ -1,5 +1,22 @@
 <?xml version="1.0"?>
 <usersdata>
-    <user name="Jon" age="23" sex="Male" weight="68.0" height="1.7" BMI="23.5" nationality="White" cardiovascular_disease_history="0" sickle_cell="0"/>
-    <user name="Arjun" age="65" sex="Male" weight="68.0" height="1.7" BMI="23.5" nationality="White" cardiovascular_disease_history="0" sickle_cell="0"/>
+    <user name="Jon" 
+        age="23" sex="Male"
+        weight="68.0"
+        height="1.7" BMI="23.5"
+        nationality="White"
+        cardiovascular_disease_history="0" 
+        sickle_cell="0"/>
+
+
+    <user name="Arjun" 
+        age="65" 
+        sex="Male" 
+        weight="68.0" 
+        height="1.7" 
+        BMI="23.5" 
+        nationality="White" 
+        cardiovascular_disease_history="0" 
+        sickle_cell="0"/>
+        
 </usersdata>
