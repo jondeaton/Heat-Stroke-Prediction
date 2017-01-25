@@ -68,8 +68,8 @@ def HeatStrokeMonitor(object):
             self.parse_incoming_line(line)
         except:
         	pass
-        self.checker = threading.Timer(0.01, self.serial_checker)
-        self.checker.start()
+        self.checker_thread = threading.Timer(0.01, self.serial_checker)
+        self.checker_thread.start()
 
     def parse_incoming_line(self, line)
     	now = time.time()
@@ -116,16 +116,19 @@ def HeatStrokeMonitor(object):
     	df["SR"].loc[0:self.Skin_stream.size] = self.Skin_stream.values()
 
     	save_file = file if file is not None else self.data_save_file
+    	logger.info("Saving data to: %s" % save_file)
     	df.to_excel(save_file)
     	
-
-
 
 def main():
 	logger.info("Initiating HeatStrokeMonitor object...")
 	monitor = HeatStrokeMonitor()
 	logger.info("Initializing data reading...")
 	monitor.read_data(print=True)
+
+	logger.info("Reading data...")
+	save_thread = threading.Timer(20, monitor.save_data)
+	save_therad.start()
 
 
 if __name__ == "__main__":
