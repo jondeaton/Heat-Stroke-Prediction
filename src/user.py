@@ -4,11 +4,12 @@ import xml
 import pandas as pd
 import xml.etree.ElementTree as ET
 
-def MonitorUser(object):
+class MonitorUser(object):
 
-	def __init__(self):
+	def __init__(self, load=False):
 		self.users_file = 'users.xml'
-
+		
+		self.series = pd.Series()
 		self.name = None
 		self.age = None
 		self.sex = None
@@ -19,8 +20,19 @@ def MonitorUser(object):
 		self.cardiovascular_disease_history = None
 		self.sickle_cell = None
 
-	def update_series(self):
+		if load:
+			self.load_from_file(None)
 
+	def update_series(self):
+		self.series['Name'] = self.name
+		self.series['Sex'] = self.sex
+		self.series['Age'] = self.age
+		self.series['Weight (kg)'] = self.weight
+		self.series['BMI'] = self.BMI
+		self.series['Height (cm)'] = self.height
+		self.series['Nationality'] = self.nationality
+		self.series['Cardiovascular disease history'] = self.cardiovascular_disease_history
+		self.series['Sickle Cell Trait (SCT)'] = self.sickle_cell
 
 	def load_from_file(self, username, users_file=None):
 		
@@ -31,14 +43,13 @@ def MonitorUser(object):
 			xml_users_file = self.users_file
 		
 		tree = ET.parse(xml_users_file)
-		root = tree.getroot()
-			
-		xml_user = None
-		for child in root:
-			if child.attrib['name'] == username
-				xml_user = child
+		users = tree.getroot()
+		
+		for user in users:
+			if username is None or user['name'] == username:
+				user_attributes = user.attrib
+				break
 
-		user_attributes = xml_user.attrib
 		self.name = user_attributes['name']
 		self.age = user_attributes['age']
 		self.sex = user_attributes['sex']
