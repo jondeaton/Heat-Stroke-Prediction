@@ -20,12 +20,20 @@ __email__ = "jdeaton@stanford.edu"
 def HeatStrokePredictor(object):
 
 	def __init__(self):
+		logger.info("Initializing user...")
 		self.user = user.MonitorUser(load=True)
 		logger.info("Monitor User: {name}".foramt(name=self.user.name))
 
+		logger.info("Initializing monitor...")
 		self.monitor = monitor.HeatStrokeMonitor()
+		logger.info("Monitor initialized")
 
-		self.reader = read_data.HeatStrokeDataFiller()
+
+		logger.info("Initializing data reader...")
+		self.reader = reader.HeatStrokeDataFiller()
+		logger.info("Reader initialized")
+
+
 
 		self.log_reg_predictor = None
 
@@ -41,17 +49,31 @@ def HeatStrokePredictor(object):
 		# Wet Bulb Globe Temperature
 		self.wbgt_predictor = None
 
-	def init_monitor(self):
-		self.monitor = HeatStrokeMonitor()
 
+	def start_data_collection(self):
+
+
+	def make_user_log_reg_input(self):
+		# todo
+		pass
 
 	def make_prediction(self):
-
+		pass
 
 def main():
+
+	
+
+
 	logger.info("Making predictor object...")
 	predictor = HeatStrokePredictor()
-	
+	logger.info("Predictor initialized")
+
+	logger.info("Initializing data collection...")
+	predictor.start_data_collectoin()
+
+	predictor.begin_predictions()
+
 
 if __name__ == "__main__":
 	main()
