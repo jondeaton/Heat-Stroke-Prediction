@@ -4,8 +4,11 @@ import os
 import argparse
 import warnings
 import logging
-import read_data
+
+# My modules
 import user
+import monitor
+import read_data
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,8 +20,11 @@ __email__ = "jdeaton@stanford.edu"
 def HeatStrokePredictor(object):
 
 	def __init__(self):
-		self.monitor = None
-		self.user = None
+		self.user = user.MonitorUser(load=True)
+		logger.info("Monitor User: {name}".foramt(name=self.user.name))
+
+		self.monitor = monitor.HeatStrokeMonitor()
+
 		self.reader = read_data.HeatStrokeDataFiller()
 
 		self.log_reg_predictor = None
