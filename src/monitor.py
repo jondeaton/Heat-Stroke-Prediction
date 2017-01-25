@@ -25,7 +25,9 @@ def parse(line):
 def HeatStrokeMonitor(object):
 
 	def __init__(self):
-		self.init = time.time
+		self.init_time = time.time
+		self.data_save_file = "monitor_data.csv"
+
 		self.serial_ports = ['/tmp/tty.LightBlue-Bean',
 							 '/tmp/cu.LightBlue-Bean', 
 							 '/dev/cu.LightBlue-Bean', 
@@ -57,6 +59,8 @@ def HeatStrokeMonitor(object):
 			return
 		try:
             line = self.ser.readline()
+            if print:
+            	logger.info("Read line: %s" % line)
             self.parse_incoming_line(line)
         except:
         	pass
@@ -85,6 +89,9 @@ def HeatStrokeMonitor(object):
     		self.Skin_stream[time] = parsed_line
     	else:
     		logger.warning("No parse: %s" % line)
+
+    def save_data(self, file=None):
+
 
 def main():
 	logger.info("Initiating HeatStrokeMonitor object...")
