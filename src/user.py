@@ -22,7 +22,7 @@ class MonitorUser(object):
 
 		if load:
 			self.load_from_file(None)
-
+			
 	def update_series(self):
 		self.series['Name'] = self.name
 		self.series['Sex'] = self.sex
@@ -44,18 +44,18 @@ class MonitorUser(object):
 		
 		tree = ET.parse(xml_users_file)
 		users = tree.getroot()
-		
+
 		for user in users:
 			if username is None or user['name'] == username:
 				user_attributes = user.attrib
 				break
 
 		self.name = user_attributes['name']
-		self.age = user_attributes['age']
-		self.sex = user_attributes['sex']
-		self.weight = user_attributes['weight']
-		self.height = user_attributes['height']
-		self.BMI = user_attributes['BMI']
-		self.nationality = user_attributes['nationality']
-		self.cardiovascular_disease_history = user_attributes['cardiovascular_disease_history']
-		self.sickle_cell = user_attributes['sickle_cell']
+		self.age = int(user_attributes['age'])
+		self.sex = 1 if user_attributes['sex'] == "Male" else 0
+		self.weight = float(user_attributes['weight'])
+		self.height = float(user_attributes['height'])
+		self.BMI = float(user_attributes['BMI'])
+		self.nationality = 0 if user_attributes['nationality'] == "White" else 1
+		self.cardiovascular_disease_history = int(user_attributes['cardiovascular_disease_history'])
+		self.sickle_cell = int(user_attributes['sickle_cell'])
