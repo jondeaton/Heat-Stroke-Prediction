@@ -16,7 +16,6 @@ def HeatStrokeMonitor(object):
 		self.init = time.time
 
 
-
 def main():
 	logger.info("Implement some testing things here...")
 
