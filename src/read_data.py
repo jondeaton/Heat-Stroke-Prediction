@@ -113,7 +113,7 @@ class HeatStrokeDataFiller(object):
         self.spreadsheet_name = "Individualized Data"
         self.filled_output_file = os.path.join(self.project_dir, "data", "filled_data.csv")
         self.output_file = os.path.join(self.project_dir, "data", "final.csv")
-        self.use_fake_data = False
+        self.use_fake_data = False # For testing
         # This instance value "self.df" is the pandas DataFrame that contains all of the data
         # from the literature case studies. Manipulating this field is the purpose of this class.
         self.df = None
