@@ -39,6 +39,13 @@ class PredictionHandler(object)
 	def start_data_collection(self):
 		monitor.read_data_from_port()
 
+    def get_current_attributes(self):
+        
+
+
+
+    def make_predictoin(self):
+
 
 
 
