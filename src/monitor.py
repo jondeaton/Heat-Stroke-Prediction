@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+'''
+monitor.py
+
+This script implements a class called HeatStrokeMonitor that handles reading data from a serial
+port that is being written to by e blue bean, and handles the storage of that data.
+'''
 
 import os
 import time

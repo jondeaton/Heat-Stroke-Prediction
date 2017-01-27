@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+'''
+predictor.py
+
+This script implements the HeatStrokePredictor class, which implements several 
+heat stroke predictoin algorithms. Objects of this class contain a HeatStrokeDataFiller
+object which is used to revrieve patient data that is used for a logistic regression model.
+'''
 
 import os
 import warnings
@@ -23,7 +30,9 @@ class HeatStrokePredictor(object):
 		self.reader = reader.HeatStrokeDataFiller()
 		logger.info("Reader initialized")
 
-		self.log_reg_predictor = None
+		self.log_reg_predictor = linear_model.LogisticRegression(C=1e5)
+		fitted = classifier.fit(X[train], y[train])
+        probas = fitted.predict_proba(X[test])
 
 		# For calculating heat Index
 		self.heat_index_predictor = None
@@ -37,6 +46,7 @@ class HeatStrokePredictor(object):
 		# Wet Bulb Globe Temperature
 		self.wbgt_predictor = None
 
+		self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
 
 
 	def make_user_log_reg_input(self):

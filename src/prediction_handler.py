@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+'''
+prediction_handler.py
+
+This script implements a class called PredictoinHandler.py which contains a MonitorUser, 
+HeatStrokeMonitor, and HeatStrokePredictor object. Instances of this class instantiate these
+objects and couriers data between them to get and report predictions of heat stroke risk.
+'''
 
 import time
 import pandas as pd
