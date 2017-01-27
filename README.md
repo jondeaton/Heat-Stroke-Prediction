@@ -17,6 +17,11 @@ This is a test.
 
 	`sudo pip install oauth2client`
 
+5. meteocalc
+    
+    'pip install meteocalc'
+
+
 You must also specify cryptography 1.4 from pip like so
 	
 	`cryptography=1.4`
