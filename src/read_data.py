@@ -116,6 +116,8 @@ class HeatStrokeDataFiller(object):
         self.use_fake_data = False # For testing
         # This instance value "self.df" is the pandas DataFrame that contains all of the data
         # from the literature case studies. Manipulating this field is the purpose of this class.
+        
+        self.num_negative = 500
         self.df = None
 
 
@@ -368,8 +370,7 @@ class HeatStrokeDataFiller(object):
         df = pd.DataFrame(data, columns=columns)
         return df
 
-    @staticmethod
-    def get_negative_data(N=None):
+    def get_negative_data(self, N=None):
         """
         This function generates a pandas DataFrame with N elements each column/field. The data points are generated
         from functions (stored in the hash HeatStrokeDataFiller.negative_default) that each will take a parameter N
@@ -377,11 +378,7 @@ class HeatStrokeDataFiller(object):
         :param N: The number of data points
         :return: A pandas DataFrame
         """
-        if N is None and type(HeatStrokeDataFiller.negative_data_size) is int:
-            N = HeatStrokeDataFiller.negative_data_size
-        else:
-            N = 500
-        negative_df = pd.DataFrame(columns=HeatStrokeDataFiller.important_features, index=np.arange(N))
+        negative_df = pd.DataFrame(columns=HeatStrokeDataFiller.important_features, index=np.arange(self.num_negative))
         for field in negative_df.columns:
             parameter_distribution = HeatStrokeDataFiller.negative_default[field]
             negative_df[field] = parameter_distribution(N)
