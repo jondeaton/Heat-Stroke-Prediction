@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn import linear_model
 from sklearn import metrics
 import sklearn.model_selection
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, precision_recall_curve
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from itertools import cycle
@@ -32,7 +32,7 @@ class CrossValidator(object):
     def __init__(self):
         self.outcome_field = "Heat stroke"
         self.output_directory = os.path.dirname(os.path.abspath(__file__))
-        self.roc_filename = "roc_curve.svg"
+        self.plot_filename = "performancs_curves.svg"
         self.N_fold = 6
         self.df = None
         self.cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
@@ -40,14 +40,49 @@ class CrossValidator(object):
         self.use_all_fields = False
         self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
 
+        self.classifier = linear_model.LogisticRegression(C=1e5)
+
+    def CV_overall(self)
+
+    def CV_sensitivity_specificity(self):
+
+
+
+    def CV_precision_recall(self):
+        # Precision Recall Curve
+            precision[which_fold], recall[which_fold], threaholds = precision_recall_curve(y[test], probas[:, 1])
+            average_precision[which_fold] = average_precision_score(y_test[:, i], y_score[:, i])
+
+            axarr[1].plot(precision, rcall, lw=lw, color=color, label="Fold: %d" % which_fold)
+
+        # setup plot details
+        colors = cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue', 'teal'])
+        lw = 2
+        # Binarize the output
+        y = label_binarize(y, classes=[0, 1, 2])
+        n_classes = y.shape[1]
+        precision["micro"], recall["micro"], _ = precision_recall_curve(y_test.ravel(), y_score.ravel())
+        average_precision["micro"] = average_precision_score(y_test, y_score, average="micro")
+
+
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5, random_state=random_state)
+
+        precision = dict()
+        recall = dict()
+        average_precision = dict()
+
+
+
     def perform_cross_validation(self):
         """
         This function performs cross validation on the this instances data frame
         :return: None
         """
-        classifier = linear_model.LogisticRegression(C=1e5)
-        y = np.array(self.df[self.outcome_field])
 
+        
+        
+        y = np.array(self.df[self.outcome_field])
         X = self.df.drop(self.outcome_field, axis=1)
         if not self.use_all_fields:
             X  = X[self.fields_used]
@@ -61,21 +96,29 @@ class CrossValidator(object):
         print("Prediction Accuracy: %f" % metrics.accuracy_score(self.df[self.outcome_field], predicted))
         print("Scoring accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
-        logger.info("Cross validating for ROC curve...")
+        logger.info("Cross validating for ROC curves...")
         lw = 2
         which_fold = 0
         mean_tpr = 0.0
         mean_fpr = np.linspace(0, 1, 100)
 
+        f, axarr = plt.subplots(2, sharey=True)
+        axarr[0].set_title('Perfromance')
+
         for (train, test), color in zip(self.cv.split(X, y), self.roc_colors):
             fitted = classifier.fit(X[train], y[train])
             probas = fitted.predict_proba(X[test])
+            
+            # ROC Curve
             fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
             mean_tpr += interp(mean_fpr, fpr, tpr)
             mean_tpr[0] = 0.0
             roc_auc = auc(fpr, tpr)
             plt.plot(fpr, tpr, lw=lw, color=color, label='ROC fold %d (area = %0.2f)' % (which_fold, roc_auc))
+
             which_fold += 1
+
+
 
         plt.plot([0, 1], [0, 1], linestyle='--', lw=lw, color='k', label='Chance')
         mean_tpr /= self.cv.get_n_splits(X, y)
