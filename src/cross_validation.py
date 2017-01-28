@@ -32,96 +32,61 @@ class CrossValidator(object):
     def __init__(self):
         self.outcome_field = "Heat stroke"
         self.output_directory = os.path.dirname(os.path.abspath(__file__))
-        self.plot_filename = "performancs_curves.svg"
-        self.N_fold = 6
-        self.df = None
-        self.cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
+        self.roc_filename = "roc_curve.svg"
+        self.prc_filename = "prc_plot.svg"
         self.roc_colors = cycle(['cyan', 'indigo', 'seagreen', 'yellow', 'blue', 'darkorange'])
+        
+        self.N_fold = 6
+        self.cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
+        self.classifier = linear_model.LogisticRegression(C=1e5)
+
+        self.df = None
+        self.X = None
+        self.y = None
+
         self.use_all_fields = False
         self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
 
-        self.classifier = linear_model.LogisticRegression(C=1e5)
-
-    def CV_overall(self)
-
-    def CV_sensitivity_specificity(self):
-
-
-
-    def CV_precision_recall(self):
-        # Precision Recall Curve
-            precision[which_fold], recall[which_fold], threaholds = precision_recall_curve(y[test], probas[:, 1])
-            average_precision[which_fold] = average_precision_score(y_test[:, i], y_score[:, i])
-
-            axarr[1].plot(precision, rcall, lw=lw, color=color, label="Fold: %d" % which_fold)
-
-        # setup plot details
-        colors = cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue', 'teal'])
-        lw = 2
-        # Binarize the output
-        y = label_binarize(y, classes=[0, 1, 2])
-        n_classes = y.shape[1]
-        precision["micro"], recall["micro"], _ = precision_recall_curve(y_test.ravel(), y_score.ravel())
-        average_precision["micro"] = average_precision_score(y_test, y_score, average="micro")
-
-
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5, random_state=random_state)
-
-        precision = dict()
-        recall = dict()
-        average_precision = dict()
-
-
-
-    def perform_cross_validation(self):
-        """
-        This function performs cross validation on the this instances data frame
-        :return: None
-        """
-
-        
-        
-        y = np.array(self.df[self.outcome_field])
-        X = self.df.drop(self.outcome_field, axis=1)
+    def CV_all(self):
+        self.y = np.array(self.df[self.outcome_field])
+        self.X = self.df.drop(self.outcome_field, axis=1)
         if not self.use_all_fields:
-            X  = X[self.fields_used]
-        X = np.array(X)
+            try:
+                self.X  = self.X[self.fields_used]
+            except KeyError:
+                pass
+        self.X = np.array(self.X)
 
         logger.info("Cross Validating...")
-        scores = sklearn.model_selection.cross_val_score(classifier, X, y, cv=self.cv)
-        predicted = sklearn.model_selection.cross_val_predict(classifier, X, y, cv=self.cv)
+        self.CV_accuracy()
 
-        print("Scores: %s" % scores)
-        print("Prediction Accuracy: %f" % metrics.accuracy_score(self.df[self.outcome_field], predicted))
-        print("Scoring accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
+        logger.info("Cross validating for sensitivity/specificity...")
+        self.CV_sensitivity_specificity()
 
-        logger.info("Cross validating for ROC curves...")
+        logger.info("Cross validating for precision/recall...")
+        self.CV_precision_recall()
+
+    def CV_sensitivity_specificity(self):
+        # ROC curve generation
         lw = 2
         which_fold = 0
         mean_tpr = 0.0
         mean_fpr = np.linspace(0, 1, 100)
 
-        f, axarr = plt.subplots(2, sharey=True)
-        axarr[0].set_title('Perfromance')
-
-        for (train, test), color in zip(self.cv.split(X, y), self.roc_colors):
-            fitted = classifier.fit(X[train], y[train])
-            probas = fitted.predict_proba(X[test])
-            
+        plt.figure()
+        for (train, test), color in zip(self.cv.split(self.X, self.y), self.roc_colors):
+            fitted = self.classifier.fit(self.X[train], self.y[train])
+            probas = fitted.predict_proba(self.X[test])
             # ROC Curve
-            fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
+            fpr, tpr, thresholds = roc_curve(self.y[test], probas[:, 1])
             mean_tpr += interp(mean_fpr, fpr, tpr)
             mean_tpr[0] = 0.0
             roc_auc = auc(fpr, tpr)
             plt.plot(fpr, tpr, lw=lw, color=color, label='ROC fold %d (area = %0.2f)' % (which_fold, roc_auc))
-
             which_fold += 1
 
-
-
         plt.plot([0, 1], [0, 1], linestyle='--', lw=lw, color='k', label='Chance')
-        mean_tpr /= self.cv.get_n_splits(X, y)
+        mean_tpr /= self.cv.get_n_splits(self.X, self.y)
         mean_tpr[-1] = 1.0
         mean_auc = auc(mean_fpr, mean_tpr)
         plt.plot(mean_fpr, mean_tpr, color='g', linestyle='--', label='Mean ROC (area = %0.2f)' % mean_auc, lw=lw)
@@ -140,6 +105,55 @@ class CrossValidator(object):
         plt.savefig(output_file)
         logger.info("ROC saved: %s", os.path.basename(output_file))
 
+    def CV_precision_recall(self):
+        # Precision Recall Curve
+        # X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(self.X, self.y, test_size=.5)
+
+        precision = dict()
+        recall = dict()
+        average_precision = dict()
+        lw = 2
+        which_fold = 0
+        plt.figure()
+        for (train, test), color in zip(self.cv.split(self.X, self.y), self.roc_colors):
+        # for which_fold in range(self.N_fold):
+            fitted = self.classifier.fit(self.X[train], self.y[train])
+            probas = fitted.predict_proba(self.X[test])
+
+            precision[which_fold], recall[which_fold], threaholds = precision_recall_curve(self.y[test], probas[:, 1])
+            average_precision[which_fold] = sklearn.metrics.average_precision_score(self.y[test], probas[:, 1])
+            plt.plot(precision[which_fold], recall[which_fold], lw=lw, color=color, label="Fold: %d" % which_fold)
+            which_fold += 1
+
+        # Setup plot details
+        # # Binarize the output
+        # precision["micro"], recall["micro"], _ = precision_recall_curve(y_test.ravel(), y_score.ravel())
+        # average_precision["micro"] = average_precision_score(y_test, y_score, average="micro")
+
+        plt.xlim([0, 1])
+        plt.ylim([0, 1])
+        plt.grid(True)
+        hfont = {'fontname':'Helvetica'}
+        plt.xlabel('Recall', fontsize=12, **hfont)
+        plt.ylabel('Precision', fontsize=12, **hfont)
+        plt.title('%d-Fold Cross Validation Precision Recall' % self.N_fold, fontsize=12, **hfont)
+        plt.legend(fontsize=8, loc='lower left', title="Legend",  fancybox=True)
+        plt.savefig(self.prc_filename)
+
+    def CV_accuracy(self):
+        """
+        This function performs cross validation on the this instances data frame
+        :return: None
+        """
+        self.scores = sklearn.model_selection.cross_val_score(self.classifier, self.X, self.y, cv=self.cv)
+        predicted = sklearn.model_selection.cross_val_predict(self.classifier, self.X, self.y, cv=self.cv)
+        self.accuracy = metrics.accuracy_score(self.df[self.outcome_field], predicted)
+
+        print("Scores: %s" % self.scores)
+        print("Prediction Accuracy: %f" % self.accuracy)
+        print("Scoring accuracy: %0.2f (+/- %0.2f)" % (self.scores.mean(), self.scores.std() * 2))
+
+
 def main():
 
     script_description = "This script performs cross validation on heat stroke prediction algorithms"
@@ -156,6 +170,7 @@ def main():
     options_group.add_argument("-f", "--fake", action="store_true", help="Use fake data")
     options_group.add_argument('-p', '--prefiltered', action="store_true", help="Use pre-filtered data")
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
+    options_group.add_argument('-N', '--num-negative', dest='num_negative', type=int, default=500, required=False, help="Number of negative data points")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -177,6 +192,7 @@ def main():
 
     reader = read_data.HeatStrokeDataFiller()
     reader.use_fake_data = args.fake
+    reader.num_negative = args.num_negative
 
     if args.prefiltered:
         logger.info("Using prefiltered data from: %s" % os.path.basename(reader.filled_output_file))
@@ -193,7 +209,7 @@ def main():
     cross_validator.df = copy.deepcopy(reader.df)
     cross_validator.use_all_fields = args.all_fields
 
-    cross_validator.perform_cross_validation()
+    cross_validator.CV_all()
 
 if __name__ == '__main__':
     main()
