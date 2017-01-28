@@ -120,7 +120,6 @@ class HeatStrokeDataFiller(object):
         self.num_negative = 500
         self.df = None
 
-
     def read_prefiltered_data(self):
         """
         This function reads data from an already saved file
@@ -353,7 +352,7 @@ class HeatStrokeDataFiller(object):
         self.df.to_csv(self.filled_output_file)
 
     @staticmethod
-    def create_fake_test_data(N=2000, num_fts=20):
+    def create_fake_test_data(N=2000, num_fts=3):
         """
         This function is for getting FAKE data for testing
         :param N: Number of positive and negative data poitns
@@ -363,8 +362,8 @@ class HeatStrokeDataFiller(object):
         positive_data = np.ones((N, 1 + num_fts))
         negative_data = np.zeros((N, 1 + num_fts))
         for i in range(1, 1 + num_fts):
-            positive_data[:, i] = i + np.random.random(N)
-            negative_data[:, i] = i + 1.25 * np.random.random(N)
+            positive_data[:, i] = i + np.random.normal(size=N)
+            negative_data[:, i] = pow(i + 2, 2) + 1.25 * np.random.normal(size=N)
         columns = [HeatStrokeDataFiller.outcome_field] + list(string.ascii_lowercase[:num_fts])
         data = np.vstack((positive_data, negative_data))
         df = pd.DataFrame(data, columns=columns)
