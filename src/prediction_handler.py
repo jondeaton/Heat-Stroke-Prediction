@@ -23,7 +23,7 @@ class PredictionHandler(object)
 	def __init__(self):
 
 		self.risk_series = pd.Series()
-
+        
 		logger.info("Initializing user...")
 		self.user = user.MonitorUser(load=True)
 		logger.info("Monitor User: {name}".foramt(name=self.user.name))
