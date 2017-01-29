@@ -42,8 +42,6 @@ class PredictionHandler(object)
     def get_current_attributes(self):
         
 
-
-
     def make_predictoin(self):
 
 
