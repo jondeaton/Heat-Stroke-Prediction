@@ -56,8 +56,13 @@ class CrossValidator(object):
         self.whiten_data = False
 
         self.use_all_fields = False
-        self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
+        self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)', 'Heart / Pulse rate (b/min)']
 
+        self.all_fields = ['Exertional (1) vs classic (0)', 'Dehydration', 'Strenuous exercise', 'Environmental temperature (C)',
+        'Relative Humidity', 'Barometric Pressure', 'Heat Index (HI)', 'Time of day', 'Time of year (month)', 'Exposure to sun', 'Sex', 'Age',
+        'BMI', 'Weight (kg)', 'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)', 'Patient temperature', 'Rectal temperature (deg C)', 
+        'Daily Ingested Water (L)', 'Sweating', 'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 'Hot/dry skin',
+        'Heart / Pulse rate (b/min)', 'Systolic BP', 'Diastolic BP']
 
     def set_classifier(self):
         if self.use_svm:
@@ -65,12 +70,17 @@ class CrossValidator(object):
         else:
             self.classifier = linear_model.LogisticRegression(C=1e5)
 
-    def make_margins_plot(self):
-        # This plot makes a seperating hyperplans
+    def make_margins_plot(self, feature1='Patient temperature', feature2='Heart / Pulse rate (b/min)'):
+        # This plot makes a seperating hyperplane
+        if self.use_all_fields:
+            feature_list = self.all_fields
+        else:
+            feature_list = self.fields_used
+        
+        dim0 = feature_list.index(feature1)
+        dim1 = feature_list.index(feature2)
 
-        # Get the separating hyperplane
-        dim0 = 0
-        dim1 = 1
+        # Fit the SVM classifier
         self.classifier.fit(self.X[:, [dim0, dim1]], self.y)
 
         w = self.classifier.coef_[0]
@@ -78,45 +88,35 @@ class CrossValidator(object):
         x_min = min(self.X[:, dim0])
         x_max = max(self.X[:, dim0])
         xx = np.linspace(x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min))
-        print("Intercept: %f" % self.classifier.intercept_)
         yy = a * xx - (self.classifier.intercept_[0]) / w[1]
         margin = 1 / np.sqrt(np.sum(self.classifier.coef_ ** 2))
         yy_down = yy + a * margin
         yy_up = yy - a * margin
 
-        # plot the line, the points, and the nearest vectors to the plane
         plt.figure()
-        plt.plot(xx, yy, 'k-')
-        plt.plot(xx, yy_down, 'k--')
-        plt.plot(xx, yy_up, 'k--')
-
         x_points = self.classifier.support_vectors_[:, 0]
         y_points = self.classifier.support_vectors_[:, 1]
 
-        # Plotting the support vectors
-        #plt.scatter(x_points, y_points, s=2, facecolors='none', zorder=10)
+        # Plotting the patient data
+        plt.scatter(self.X[:, dim0][self.y == 0], self.X[:, dim1][self.y == 0], c="#1482e2", label="No heat stroke")
+        plt.scatter(self.X[:, dim0][self.y == 1], self.X[:, dim1][self.y == 1], c="#d3430a", label="Heat stroke")
 
-        # Plotting the ???
-        plt.scatter(self.X[:, dim0], self.X[:, dim1], c=self.y, zorder=10, cmap=plt.cm.Paired)
+        # Plot the SVM hyperplane, the points, and the nearest vectors to the plane
+        plt.plot(xx, yy, 'k-', label="SVM Hyperplane")
+        plt.plot(xx, yy_down, 'k--')
+        plt.plot(xx, yy_up, 'k--')
 
-        # XX, YY = np.mgrid[x_min:x_max:200j, y_min:y_max:200j]
-        # Z = self.classifier.predict(np.c_[XX.ravel(), YY.ravel()])
-
-        # # Put the result into a color plot
-        # Z = Z.reshape(XX.shape)
-        # plt.figure(fignum, figsize=(4, 3))
-        # plt.pcolormesh(XX, YY, Z, cmap=plt.cm.Paired)
-
-        # plt.xticks(())
-        # plt.yticks(())
         y_min = min(self.X[:, dim1])
         y_max = max(self.X[:, dim1])
         plt.xlim([x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min)])
         plt.ylim([y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)])
         plt.title("SVM Margins Plot")
-        plt.xlabel(self.fields_used[dim0])
-        plt.ylabel(self.fields_used[dim1])
+
+
+        plt.xlabel(feature_list[dim0])
+        plt.ylabel(feature_list[dim1])
         plt.legend()
+        plt.grid(True)
         plt.savefig(self.margins_filename)
         plt.show()
 
@@ -124,26 +124,30 @@ class CrossValidator(object):
 
         self.y = np.array(self.df[self.outcome_field])
         self.X = self.df.drop(self.outcome_field, axis=1)
-        if not self.use_all_fields:
+        if self.use_all_fields:
+            self.X  = self.X[self.all_fields]
+        else:
             try:
+                # Using ony a subset of fields
                 self.X  = self.X[self.fields_used]
             except KeyError:
+                # This error would happen if we were using fake
+                # data without the same feature names
                 pass
+
         if self.whiten_data:
             self.X = whiten(self.X)
         else:
             self.X = np.array(self.X)
 
         self.classifier.fit(self.X, self.y)
-        print("Coefficients:")
-        print(self.classifier.coef_)
+        print("Coefficients: %s" % self.classifier.coef_[0])
 
         logger.info("Making margins plot...")
         self.make_margins_plot()
 
         logger.info("Cross Validating...")
         self.CV_accuracy()
-        exit()
 
         logger.info("Cross validating for sensitivity/specificity...")
         self.CV_sensitivity_specificity()
@@ -239,7 +243,6 @@ class CrossValidator(object):
         print("Prediction Accuracy: %f" % self.accuracy)
         print("Scoring accuracy: %0.2f (+/- %0.2f)" % (self.scores.mean(), self.scores.std() * 2))
         print("Fscore: %f" % self.fscore)
-
 
 def main():
 
