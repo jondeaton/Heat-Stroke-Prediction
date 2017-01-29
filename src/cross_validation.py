@@ -53,6 +53,8 @@ class CrossValidator(object):
         self.X = None
         self.y = None
 
+        self.whiten_data = False
+
         self.use_all_fields = False
         self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
 
@@ -67,37 +69,17 @@ class CrossValidator(object):
         # This plot makes a seperating hyperplans
 
         # Get the separating hyperplane
-        self.classifier.fit(self.X, self.y)
-
         dim0 = 0
         dim1 = 1
+        self.classifier.fit(self.X[:, [dim0, dim1]], self.y)
 
-        x_min, x_max = self.X[:, dim0].min() - 1, self.X[:, dim0].max() + 1
-        y_min, y_max = self.X[:, dim1].min() - 1, self.X[:, dim1].max() + 1
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.1), np.arange(y_min, y_max, 0.1))
-        Z = self.classifier.predict(np.c_[xx.ravel(), yy.ravel()])
-        Z = Z.reshape(xx.shape)
-
-        plt.figure()
-        f, axarr = plt.subplots(1)
-        axarr.contourf(xx, yy, Z, alpha=0.4)
-        axarr.scatter(self.X[:, dim0], self.X[:, dim1], c=self.y, alpha=0.8)
-        plt.show()
-        exit()
-       
         w = self.classifier.coef_[0]
-        a = -w[dim0] / w[dim1]
-        xx = np.linspace(min(self.X[:, dim0]), max(self.X[:, dim0]))
+        a = -w[0] / w[1]
+        x_min = min(self.X[:, dim0])
+        x_max = max(self.X[:, dim0])
+        xx = np.linspace(x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min))
         print("Intercept: %f" % self.classifier.intercept_)
         yy = a * xx - (self.classifier.intercept_[0]) / w[1]
-
-        # plot the parallels to the separating hyperplane that pass through the
-        # support vectors
-        # b = self.classifier.support_vectors_[0]
-        # yy_down = a * xx + (b[1] - a * b[0])
-        # b = self.classifier.support_vectors_[-1]
-        # yy_up = a * xx + (b[1] - a * b[0])
-        
         margin = 1 / np.sqrt(np.sum(self.classifier.coef_ ** 2))
         yy_down = yy + a * margin
         yy_up = yy - a * margin
@@ -108,8 +90,8 @@ class CrossValidator(object):
         plt.plot(xx, yy_down, 'k--')
         plt.plot(xx, yy_up, 'k--')
 
-        x_points = self.classifier.support_vectors_[:, dim0]
-        y_points = self.classifier.support_vectors_[:, dim1]
+        x_points = self.classifier.support_vectors_[:, 0]
+        y_points = self.classifier.support_vectors_[:, 1]
 
         # Plotting the support vectors
         #plt.scatter(x_points, y_points, s=2, facecolors='none', zorder=10)
@@ -127,11 +109,16 @@ class CrossValidator(object):
 
         # plt.xticks(())
         # plt.yticks(())
+        y_min = min(self.X[:, dim1])
+        y_max = max(self.X[:, dim1])
+        plt.xlim([x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min)])
+        plt.ylim([y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)])
         plt.title("SVM Margins Plot")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
+        plt.xlabel(self.fields_used[dim0])
+        plt.ylabel(self.fields_used[dim1])
+        plt.legend()
         plt.savefig(self.margins_filename)
+        plt.show()
 
     def CV_all(self):
 
@@ -142,7 +129,10 @@ class CrossValidator(object):
                 self.X  = self.X[self.fields_used]
             except KeyError:
                 pass
-        self.X = whiten(self.X)
+        if self.whiten_data:
+            self.X = whiten(self.X)
+        else:
+            self.X = np.array(self.X)
 
         self.classifier.fit(self.X, self.y)
         print("Coefficients:")
