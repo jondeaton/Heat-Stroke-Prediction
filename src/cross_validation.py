@@ -143,8 +143,9 @@ class CrossValidator(object):
         self.classifier.fit(self.X, self.y)
         print("Coefficients: %s" % self.classifier.coef_[0])
 
-        logger.info("Making margins plot...")
-        self.make_margins_plot()
+        if self.use_svm:
+            logger.info("Making margins plot...")
+            self.make_margins_plot()
 
         logger.info("Cross Validating...")
         self.CV_accuracy()
