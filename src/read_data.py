@@ -63,40 +63,45 @@ class HeatStrokeDataFiller(object):
 
     # Each negative default has a distribution from which N points are drawn
     # TODO: UPDATE THESE TO BE MORE REALISTIC
-    negative_default = {'Heat stroke': lambda N: np.zeros(N),
-                        'Exertional (1) vs classic (0)': lambda N: np.zeros(N),
-                        'Dehydration': lambda N: np.zeros(N),
-                        'Strenuous exercise': lambda N: np.zeros(N),
-                        'Environmental temperature (C)': lambda N: 20 + 5 * np.random.random(N),
-                        'Relative Humidity': lambda N: 0.1 + 0.1 * np.random.random(N),
-                        'Barometric Pressure': lambda N: 29.97 * np.ones(N),
-                        'Heat Index (HI)': lambda N: 20 + 5 * np.random.random(N),
-                        'Time of day': lambda N: 9 + 8 * np.random.random(N),
-                        'Time of year (month)': lambda N: 12 * np.random.random(N),
-                        'Exposure to sun': lambda N: np.random.random(N) > 0.5,
-                        'Sex': lambda N: np.random.random(N) > 0.5,
-                        'Age': lambda N: 18 + 40 * np.random.random(N),
-                        'BMI': lambda N: 18.5 + (23 - 18.5) * np.random.random(N),
-                        'Weight (kg)': lambda N: 41.2769 + (53.5239 - 41.2769) * np.random.random(N),
-                        'Nationality': lambda N: np.random.random(N) > 0.5,
-                        'Cardiovascular disease history': lambda N: np.random.random(N) < 0.05,
-                        'Sickle Cell Trait (SCT)': lambda N: np.random.random(N) < 10e-5,
-                        'Patient temperature': lambda N: 36.1 + (37.2 - 36.1) * np.random.random(N),
-                        'Rectal temperature (deg C)': lambda N: 36.1 + (37.2 - 36.1) * np.random.random(N),
-                        'Daily Ingested Water (L)': lambda N: 1 + np.random.random(N) * 5,
-                        'Sweating': lambda N: np.random.random(N) < 0.5,
-                        'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': lambda N: 0.9 * np.random.random(N) * 0.1,
-                        'Hot/dry skin': lambda N: np.random.random(N) < 0.05,
-                        'Heart / Pulse rate (b/min)': lambda N: 60 + 50 * np.random.random(N),
-                        'Systolic BP': lambda N: 110 + 10 * np.random.random(N),
-                        'Diastolic BP': lambda N: 80 + 10 * np.random.random(N)}
+    negative_default = {}
+    negative_default['Heat stroke'] = lambda N: np.zeros(N)
+    negative_default['Exertional (1) vs classic (0)'] = lambda N: np.zeros(N)
+    negative_default['Dehydration'] = lambda N: np.zeros(N)
+    negative_default['Strenuous exercise'] = lambda N: np.zeros(N)
+    negative_default['Environmental temperature (C)'] = lambda N: 85 + 15 * np.random.normal(size=N)
+    negative_default['Relative Humidity'] = lambda N: 0.1 + 0.1 * np.random.normal(size=N)
+    negative_default['Barometric Pressure'] = lambda N: (29.97 * np.ones(N))
+    negative_default['Heat Index (HI)'] = lambda N: 80 + 15 * np.random.normal(size=N)
+    negative_default['Time of day'] = lambda N: 9 + 8 * np.random.random(N)
+    negative_default['Time of year (month)'] = lambda N: 12 * np.random.random(N)
+    negative_default['Exposure to sun'] = lambda N: np.random.random(N) > 0.5
+    negative_default['Sex'] = lambda N: np.random.random(N) > 0.5
+    negative_default['Age'] = lambda N: 18 + 40 * np.random.random(N)
+    negative_default['BMI'] = lambda N: 18.5 + (23 - 18.5) * np.random.random(N)
+    negative_default['Weight (kg)'] = lambda N: 41.2769 + (53.5239 - 41.2769) * np.random.random(N)
+    negative_default['Nationality'] = lambda N: np.random.random(N) > 0.5
+    negative_default['Cardiovascular disease history'] = lambda N: np.random.random(N) < 0.05
+    negative_default['Sickle Cell Trait (SCT)'] = lambda N: np.random.random(N) < 10e-5
+    negative_default['Patient temperature'] = lambda N: 36.1 + (37.2 - 36.1) * np.random.normal(size=N)
+    negative_default['Rectal temperature (deg C)'] = lambda N: 36.1 + (37.2 - 36.1) * np.random.random(N)
+    negative_default['Daily Ingested Water (L)'] = lambda N: 1 + np.random.random(N) * 5
+    negative_default['Sweating'] = lambda N: np.random.random(N) < 0.5
+    negative_default['Skin color (flushed/normal=1, pale=0.5, cyatonic=0)'] = lambda N: 0.9 * np.random.random(N) * 0.1
+    negative_default['Hot/dry skin'] = lambda N: np.random.random(N) < 0.05
+    negative_default['Heart / Pulse rate (b/min)'] = lambda N: (60 + 50 * np.random.random(N))
+    negative_default['Systolic BP'] = lambda N: 110 + 10 * np.random.random(N)
+    negative_default['Diastolic BP'] = lambda N: 80 + 10 * np.random.random(N)
 
     # Positive default values
     positive_default = copy.copy(negative_default)
     positive_default['Heat stroke'] = lambda N: np.ones(N)
     positive_default['Exertional (1) vs classic (0)'] = lambda N: np.random.random(N) > 0
-    positive_default['Patient temperature'] = lambda N: 38.1 + 2 * np.random.random(N)
-    positive_default['Rectal temperature (deg C)'] = lambda N: 38.1 + 2 * np.random.random(N)
+    positive_default['Patient temperature'] = lambda N: 40.1 + 2 * np.random.normal(size=N)
+    positive_default['Rectal temperature (deg C)'] = lambda N: 40.1 + 2 * np.random.normal(size=N)
+    positive_default['Heat Index (HI)'] = lambda N: 105 + 5 * np.random.normal(size=N)
+    positive_default['Environmental temperature (C)'] = lambda N: 95 + 5 * np.random.normal(size=N)
+    positive_default['Relative Humidity'] = lambda N: 0.8 + 0.3 * np.random.normal(size=N)
+
 
     important_features = pd.Index(negative_default.keys())
     negative_data_size = 200
@@ -174,6 +179,7 @@ class HeatStrokeDataFiller(object):
                 distribution = HeatStrokeDataFiller.positive_default[field]
                 df[field].loc[where] = distribution(how_many_to_fill)
             else:
+                logger.warning("Using default %s for field: %s" % (default_value, field))
                 # Use default values
                 df[field].loc[where] = np.array([default_value] * how_many_to_fill)
 
@@ -352,7 +358,7 @@ class HeatStrokeDataFiller(object):
         self.df.to_csv(self.filled_output_file)
 
     @staticmethod
-    def create_fake_test_data(N=2000, num_fts=3):
+    def create_fake_test_data(N=2000, num_fts=20):
         """
         This function is for getting FAKE data for testing
         :param N: Number of positive and negative data poitns
@@ -369,7 +375,7 @@ class HeatStrokeDataFiller(object):
         df = pd.DataFrame(data, columns=columns)
         return df
 
-    def get_negative_data(self, N=None):
+    def get_negative_data(self):
         """
         This function generates a pandas DataFrame with N elements each column/field. The data points are generated
         from functions (stored in the hash HeatStrokeDataFiller.negative_default) that each will take a parameter N
@@ -380,7 +386,7 @@ class HeatStrokeDataFiller(object):
         negative_df = pd.DataFrame(columns=HeatStrokeDataFiller.important_features, index=np.arange(self.num_negative))
         for field in negative_df.columns:
             parameter_distribution = HeatStrokeDataFiller.negative_default[field]
-            negative_df[field] = parameter_distribution(N)
+            negative_df[field].loc[:] = parameter_distribution(self.num_negative)
         return negative_df
 
 def main():
