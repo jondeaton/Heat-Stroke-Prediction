@@ -84,17 +84,17 @@ def HeatStrokeMonitor(object):
     	if parsed_line is None:
     		return
 
-    	if line.startswith("HR:"):
+    	if line.startswith("HR:"): # Heart Rate
     		self.HR_stream.set_value(time, parsed_line)
-    	elif line.startswith("ET:"):
+    	elif line.startswith("ET:"): # Environmental Temperature
     		self.ETemp_stream.set_value(time, parsed_line)
-    	elif line.startswith("ST:"):
+    	elif line.startswith("ST:"): # Skin Temperature
     		self.STemp_stream.set_value(time, parsed_line)
-    	elif line.startswith("GSR:"):
+    	elif line.startswith("GSR:"): # Galvanic Skin Response
     		self.GSR_stream.set_value(time, parsed_line)
-    	elif line.startswith("Acc:"):
+    	elif line.startswith("Acc:"): # Acceleration
     		self.Acc_stream.set_value(time, parsed_line)
-    	elif line.startswith("SR:"):
+    	elif line.startswith("SR:"): # Skin Reflectivity...? LOL
     		self.Skin_stream.set_value(time, parsed_line)
     	else:
     		logger.warning("No parse: %s" % line)
