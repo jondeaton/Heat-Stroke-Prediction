@@ -10,6 +10,11 @@ objects and couriers data between them to get and report predictions of heat str
 import time
 import pandas as pd
 import logging
+import warnings
+
+import user
+import monitor
+import predictor
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
@@ -18,38 +23,47 @@ logger.setLevel(logging.INFO)
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
 
-class PredictionHandler(object)
+class PredictionHandler(object):
 
-	def __init__(self):
-
-		self.risk_series = pd.Series()
+    def __init__(self):
         
-		logger.info("Initializing user...")
-		self.user = user.MonitorUser(load=True)
-		logger.info("Monitor User: {name}".foramt(name=self.user.name))
+        logger.info("Initializing user...")
+        self.user = user.MonitorUser(load=True)
+        logger.info("Monitor User: {name}".format(name=self.user.name))
 
-		logger.info("Initializing monitor...")
-		self.monitor = monitor.HeatStrokeMonitor()
-		logger.info("Monitor initialized")
+        logger.info("Initializing monitor...")
+        self.monitor = monitor.HeatStrokeMonitor()
+        logger.info("Monitor initialized")
 
-		logger.info("Initializing predictor...")
-		self.predictor = predictor.HeatStrokePredictor()
-		logger.info("Predictor initialized")
+        logger.info("Initializing predictor...")
+        self.predictor = predictor.HeatStrokePredictor()
+        logger.info("Predictor initialized")
+        
+        self.current_fields = self.user.series.keys()
+        self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
+                             'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
 
-	def start_data_collection(self):
-		monitor.read_data_from_port()
+        self.risk_series = pd.Series()
+
+    def start_data_collection(self):
+        monitor.read_data_from_port()
 
     def get_current_attributes(self):
-        
+        logger.warning("get_current_attributes not instantiated!")
 
     def make_predictoin(self):
+        logger.warning("make_prediction not implemented!")
 
 
+def test():
+    logger.info("Initializing prediciton handler...")
+    handler = PredictionHandler()
+    logger.info("Instantiate prediction handler.")
 
 
 def main():
-	import argparses
-	script_description = "This script reads data from a monitor and uses"
+    import argparse
+    script_description = "This script reads data from a monitor and uses"
     parser = argparse.ArgumentParser(description=script_description)
 
     input_group = parser.add_argument_group("Inputs")
@@ -62,6 +76,8 @@ def main():
     options_group.add_argument("-f", "--fake", action="store_true", help="Use fake data")
     options_group.add_argument('-p', '--prefiltered', action="store_true", help="Use pre-filtered data")
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
+    options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing.")
+
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -82,6 +98,11 @@ def main():
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
 
 
+    if args.test:
+        test()
+    else:
+        logger.warning("Non-testing not implemented.")
+
 
 if __name__ == "__main__":
-	main()
+    main()
