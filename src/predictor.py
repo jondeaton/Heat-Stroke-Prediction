@@ -74,7 +74,7 @@ class HeatStrokePredictor(object):
         if not self.use_all_fields:
             X  = X[self.fields_used]
         X = np.array(X)
-        self.fit_log_reg_predictor = classifier.fit(X, y)
+        self.fit_log_reg_predictor = self.log_reg_predictor.fit(X, y)
 
     def make_log_reg_prediction(self, user_attributes):
         probas = self.fit_log_reg_predictor.predict_proba(user_attributes)
