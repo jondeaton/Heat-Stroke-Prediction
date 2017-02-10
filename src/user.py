@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 class MonitorUser(object):
 
-	def __init__(self, load=False):
+	def __init__(self, load=False, username=None):
 		self.users_file = 'users.xml'
 		
 		self.series = pd.Series()
@@ -21,7 +21,7 @@ class MonitorUser(object):
 		self.sickle_cell = None
 
 		if load:
-			self.load_from_file(None)
+			self.load_from_file(username)
 			
 	def update_series(self):
 		self.series['Name'] = self.name
