@@ -11,6 +11,7 @@ import time
 import pandas as pd
 import logging
 import warnings
+from termcolor import colored, cprint
 
 import user
 import monitor
@@ -101,7 +102,7 @@ def main():
     if args.test:
         test()
     else:
-        logger.warning("Non-testing not implemented.")
+        logger.warning("Integrated testing not yet implemented. Use --test flag.")
 
 
 if __name__ == "__main__":

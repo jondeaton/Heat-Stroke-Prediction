@@ -9,19 +9,19 @@ Code in this repository is used for testing of methods for predicting heat strok
 
 1. Python 3
 2. Anaconda 3
-3. gspread
+3. gspread  + oath2client (For Google Sheet Download)
 	
 	`sudo pip install gspread`
-
-4. oauth2client
-
 	`sudo pip install oauth2client`
 
-5. meteocalc
+    Note: must also specity cryptography 1.4 from pip like so:
+    `cryptography=1.4`
+    in requirements.txt
+
+5. meteocalc (for calculating Heat Index)
     
-    'pip install meteocalc'
+    `pip install meteocalc`
 
-
-You must also specify cryptography 1.4 from pip like so
-	
-	`cryptography=1.4`
+6. termcolor (For pretty terminal colors)
+    
+    `pip install termcolor`
