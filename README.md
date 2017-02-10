@@ -7,12 +7,11 @@ Code in this repository is used for testing of methods for predicting heat strok
 
 ## Dependencies
 
-1. Python 3
-2. Anaconda 3
+1. Python 3.5
+2. Anaconda 3+
 3. gspread  + oath2client (For Google Sheet Download)
 	
-	`sudo pip install gspread`
-	`sudo pip install oauth2client`
+	`sudo pip install gspread && sudo pip install oauth2client`
 
     Note: must also specity cryptography 1.4 from pip like so:
     `cryptography=1.4`
@@ -25,3 +24,7 @@ Code in this repository is used for testing of methods for predicting heat strok
 6. termcolor (For pretty terminal colors)
     
     `pip install termcolor`
+
+7. emoji (yes seriously)
+
+    `pip install emoji --upgrade`

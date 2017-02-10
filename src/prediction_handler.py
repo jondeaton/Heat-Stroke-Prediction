@@ -11,6 +11,7 @@ import time
 import pandas as pd
 import logging
 import warnings
+import emoji
 import coloredlogs
 
 import user
@@ -27,11 +28,11 @@ __email__ = "jdeaton@stanford.edu"
 
 class PredictionHandler(object):
 
-    def __init__(self):
+    def __init__(self, username=None):
         
         logger.debug("Instantiating user...")
-        self.user = user.MonitorUser(load=True)
-        logger.info("Monitor User: {name}".format(name=self.user.name))
+        self.user = user.MonitorUser(load=True, username=username)
+        logger.info(emoji.emojize("Monitor User: {name} :man_with_turban:".format(name=self.user.name)))
 
         logger.debug("Instantiating monitor...")
         self.monitor = monitor.HeatStrokeMonitor()
@@ -59,11 +60,16 @@ class PredictionHandler(object):
 
 def test(args):
     logger.debug("Instantiating prediciton handler...")
-    handler = PredictionHandler()
+    handler = PredictionHandler(username=args.user)
     logger.debug("Instantiate prediction handler.")
 
     handler.predictor.use_prefiltered = args.prefiltered
     handler.predictor.init_log_reg_predictor()
+
+    logger.info(emoji.emojize('Python is :thumbs_up_sign:'))
+    logger.info(emoji.emojize(':ballot_box_with_check:'))
+    logger.info(emoji.emojize(':white_check_mark:'))
+    logger.info(u"check! \xE2\x9C\x85")
 
 
 def main():
@@ -81,7 +87,8 @@ def main():
     options_group.add_argument("-f", "--fake", action="store_true", help="Use fake data")
     options_group.add_argument('-p', '--prefiltered', action="store_true", help="Use pre-filtered data")
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
-    options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing.")
+    options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing")
+    options_group.add_argument('-u', '--user', default=None, help="Monitor user name")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -102,7 +109,7 @@ def main():
         coloredlogs.install(level='WARNING')
 
     if args.test:
-        logger.info("Initializing test...")
+        logger.info(emoji.emojize('Initializing test... :fire: :fire: :fire:'))
         test(args)
     else:
         logger.warning("Integrated testing not yet implemented. Use --test flag.")
