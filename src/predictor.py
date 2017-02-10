@@ -17,9 +17,13 @@ import user
 import monitor
 import read_data
 
+# Machine Learning Modules
+import numpy as np
+from sklearn import linear_model
+
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
@@ -37,13 +41,15 @@ class HeatStrokePredictor(object):
         # Wet Bulb Globe Temperature
         self.wbgt_predictor = None
 
-        logger.info("Initializing data reader...")
-        self.reader = reader.HeatStrokeDataFiller()
-        logger.info("Reader initialized")
+        self.use_prefiltered = False
+
+        logger.debug("Initializing data reader...")
+        self.reader = read_data.HeatStrokeDataFiller()
+        logger.debug("Reader initialized")
 
         self.use_all_fields = False
         self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
-        self.outcome_field = reader.outcome_field
+        self.outcome_field = self.reader.outcome_field
 
         self.log_reg_predictor = None
         self.fit_log_reg_predictor = None
@@ -55,7 +61,16 @@ class HeatStrokePredictor(object):
     def make_log_reg_classifier(self):
         self.log_reg_predictor = linear_model.LogisticRegression(C=1e5)
 
+    def load_data_into_reader(self):
+        if self.use_prefiltered:
+            self.reader.read_prefiltered_data()
+        else:
+            self.reader.read_and_filter_data()
+
     def fit_log_reg_classifier(self):
+        if self.reader.df is None:
+            self.load_data_into_reader()
+        
         y = np.array(self.reader.df[self.outcome_field])
         X = self.reader.df.drop(self.outcome_field, axis=1)
         if not self.use_all_fields:

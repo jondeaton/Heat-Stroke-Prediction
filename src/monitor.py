@@ -9,9 +9,11 @@ port that is being written to by e blue bean, and handles the storage of that da
 import os
 import time
 import logging
+import coloredlogs
 import threading
 import pandas as pd
 
+coloredlogs.install(level='INFO')
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -28,7 +30,7 @@ def parse(line):
         value = None
     return value
 
-def HeatStrokeMonitor(object):
+class HeatStrokeMonitor(object):
 
     def __init__(self):
         self.init_time = time.time
@@ -54,13 +56,14 @@ def HeatStrokeMonitor(object):
         self.port = None
         for port in self.serial_ports:
             try:
-                sys.stdout.write("Trying serial port: %s... " % port)
-                sys.stdout.flush()
                 self.ser = serial.Serial(port)
-                sys.stdout.write("succes!\n")
+                logger.info("Opened port: %s successfully" % port)
                 break
             except:
-                sys.stdout.write("failure\n")
+                logger.warning("Failed opening serial port: %s" % port)
+
+        if self.port is None:
+            logger.error("Failed opening on all %d serial ports" % len(self.serial_ports))
 
     def read_data_from_port(self, print=False):
         if self.port is None:
@@ -76,7 +79,7 @@ def HeatStrokeMonitor(object):
         self.checker_thread = threading.Timer(0.01, self.serial_checker)
         self.checker_thread.start()
 
-    def parse_incoming_line(self, line)
+    def parse_incoming_line(self, line):
     	now = time.time()
 
     	parsed_line = parse(line)

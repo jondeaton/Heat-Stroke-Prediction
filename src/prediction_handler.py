@@ -11,15 +11,16 @@ import time
 import pandas as pd
 import logging
 import warnings
-from termcolor import colored, cprint
+import coloredlogs
 
 import user
 import monitor
 import predictor
 
+
+coloredlogs.install(level='DEBUG')
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
@@ -28,17 +29,17 @@ class PredictionHandler(object):
 
     def __init__(self):
         
-        logger.info("Initializing user...")
+        logger.debug("Instantiating user...")
         self.user = user.MonitorUser(load=True)
         logger.info("Monitor User: {name}".format(name=self.user.name))
 
-        logger.info("Initializing monitor...")
+        logger.debug("Instantiating monitor...")
         self.monitor = monitor.HeatStrokeMonitor()
-        logger.info("Monitor initialized")
+        logger.debug("Monitor initialized")
 
-        logger.info("Initializing predictor...")
+        logger.debug("Instantiating predictor...")
         self.predictor = predictor.HeatStrokePredictor()
-        logger.info("Predictor initialized")
+        logger.debug("Predictor initialized")
         
         self.current_fields = self.user.series.keys()
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
@@ -56,10 +57,12 @@ class PredictionHandler(object):
         logger.warning("make_prediction not implemented!")
 
 
-def test():
-    logger.info("Initializing prediciton handler...")
+def test(args):
+    logger.debug("Instantiating prediciton handler...")
     handler = PredictionHandler()
-    logger.info("Instantiate prediction handler.")
+    logger.debug("Instantiate prediction handler.")
+
+    handler.predictor.use_prefiltered = args.prefiltered
 
 
 def main():
@@ -79,7 +82,6 @@ def main():
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
     options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing.")
 
-
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     console_options_group.add_argument('--debug', action='store_true', help='Debug console')
@@ -87,20 +89,20 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        logger.setLevel(logging.DEBUG)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='DEBUG')
     elif args.verbose:
         warnings.filterwarnings('ignore')
-        logger.setLevel(logging.INFO)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='INFO')
     else:
         warnings.filterwarnings('ignore')
-        logger.setLevel(logging.WARNING)
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
-
+        coloredlogs.install(level='WARNING')
 
     if args.test:
-        test()
+        logger.info("Initializing test...")
+        test(args)
     else:
         logger.warning("Integrated testing not yet implemented. Use --test flag.")
 
