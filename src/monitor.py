@@ -76,30 +76,6 @@ def HeatStrokeMonitor(object):
         self.checker_thread = threading.Timer(0.01, self.serial_checker)
         self.checker_thread.start()
 
-<<<<<<< HEAD
-    def parse_incoming_line(self, line):
-        now = time.time()
-
-        parsed_line = parse(line)
-        # Check to make sure that it was parsed
-        if parsed_line is None:
-            return
-
-        if line.startswith("HR:"):
-            self.HR_stream.set_value(time, parsed_line)
-        elif line.startswith("ET:"):
-            self.ETemp_stream.set_value(time, parsed_line)
-        elif line.startswith("ST:"):
-            self.STemp_stream.set_value(time, parsed_line)
-        elif line.startswith("GSR:"):
-            self.GSR_stream.set_value(time, parsed_line)
-        elif line.startswith("Acc:"):
-            self.Acc_stream.set_value(time, parsed_line)
-        elif line.startswith("SR:"):
-            self.Skin_stream.set_value(time, parsed_line)
-        else:
-            logger.warning("No parse: %s" % line)
-=======
     def parse_incoming_line(self, line)
     	now = time.time()
 
@@ -122,7 +98,6 @@ def HeatStrokeMonitor(object):
     		self.Skin_stream.set_value(time, parsed_line)
     	else:
     		logger.warning("No parse: %s" % line)
->>>>>>> a0f8704ed5d029565ccbf51521c53b469b3cc8d8
 
     def save_data(self, file=None):
         df = pd.DataFrame(columns = self.fields)
