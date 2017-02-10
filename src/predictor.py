@@ -54,13 +54,11 @@ class HeatStrokePredictor(object):
         self.log_reg_predictor = None
         self.fit_log_reg_predictor = None
 
-        self.make_log_reg_classifier()
-        self.fit_log_reg_classifier()
-
     # Logistic Regression Predictor
-    def make_log_reg_classifier(self):
+    def init_log_reg_predictor(self):
         self.log_reg_predictor = linear_model.LogisticRegression(C=1e5)
-
+        self.fit_log_reg_classifier()
+        
     def load_data_into_reader(self):
         if self.use_prefiltered:
             self.reader.read_prefiltered_data()
@@ -70,7 +68,7 @@ class HeatStrokePredictor(object):
     def fit_log_reg_classifier(self):
         if self.reader.df is None:
             self.load_data_into_reader()
-        
+
         y = np.array(self.reader.df[self.outcome_field])
         X = self.reader.df.drop(self.outcome_field, axis=1)
         if not self.use_all_fields:

@@ -63,6 +63,7 @@ def test(args):
     logger.debug("Instantiate prediction handler.")
 
     handler.predictor.use_prefiltered = args.prefiltered
+    handler.predictor.init_log_reg_predictor()
 
 
 def main():
