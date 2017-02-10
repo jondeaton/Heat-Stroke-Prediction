@@ -22,7 +22,7 @@ import copy
 
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
@@ -131,6 +131,7 @@ class HeatStrokeDataFiller(object):
         This function reads data from an already saved file
         :return: None
         """
+        logger.info("Reading prefiltered data from file: %s..." % os.path.basename(self.filled_output_file))
         self.df = pd.read_csv(self.filled_output_file)
 
     def read_and_filter_data(self):
@@ -142,20 +143,20 @@ class HeatStrokeDataFiller(object):
             self.df = HeatStrokeDataFiller.create_fake_test_data()
             return
 
-        logger.info("Reading data from file: %s..." % os.path.basename(self.excel_file))
+        logger.info("Reading and cleaning data from file: %s..." % os.path.basename(self.excel_file))
         self.df = pd.read_excel(self.excel_file, sheetname=self.spreadsheet_name)
-        logger.info("Fixing time fields...")
+        logger.debug("Fixing time fields...")
         self.fix_time_fields()
-        logger.info("Filling missing data...")
+        logger.debug("Filling missing data...")
         self.fill_missing()
-        logger.info("Fixing fields...")
+        logger.debug("Fixing fields...")
         self.fix_fields()
-        logger.info("Filtering data features...")
+        logger.debug("Filtering data features...")
         self.filter_data()
-        logger.info("Generating negative data...")
+        logger.debug("Generating negative data...")
         self.make_and_append_negative_data()
 
-        logger.info("Casting to float...")
+        logger.debug("Casting to float...")
         self.df = self.df.astype(float)
 
     def fill_missing(self):
@@ -165,7 +166,7 @@ class HeatStrokeDataFiller(object):
         """
         df = self.df
         # Filling with default values
-        logger.info("Filling from distributions...")
+        logger.debug("Filling from distributions...")
         for field in HeatStrokeDataFiller.default_map or field in HeatStrokeDataFiller.positive_default:
             if field not in df.columns:
                 logger.warning("(%s) missing from data-frame columns" % field)
@@ -180,12 +181,12 @@ class HeatStrokeDataFiller(object):
                 distribution = HeatStrokeDataFiller.positive_default[field]
                 df[field].loc[where] = distribution(how_many_to_fill)
             else:
-                logger.warning("Using default %s for field: %s" % (default_value, field))
+                logger.debug("Using default %s for field: %s" % (default_value, field))
                 # Use default values
                 df[field].loc[where] = np.array([default_value] * how_many_to_fill)
 
         # Filling with Zeros
-        logger.info("Fillling with zeros...")
+        logger.debug("Fillling with zeros...")
         for field in HeatStrokeDataFiller.fields_to_fill_with_zero:
             if field not in df.columns:
                 logger.warning("\"%s\" missing from columns" % field)
@@ -197,7 +198,7 @@ class HeatStrokeDataFiller(object):
             df[field].loc[where] = np.zeros(how_many_to_fill)
 
         # Filling in columns with the average from the rest of the column
-        logger.info("Filling with agerages...")
+        logger.debug("Filling with agerages...")
         for field in HeatStrokeDataFiller.fields_to_fill_with_average:
             if field not in df.columns:
                 logger.warning("\"%s\" missing from data-frame columns" % field)
@@ -299,19 +300,19 @@ class HeatStrokeDataFiller(object):
         males = self.df["Sex"] == "M"
         self.df["Sex"] = np.array(males, dtype=int)
 
-        logger.info("Fixing bounded values...")
+        logger.debug("Fixing bounded values...")
         self.fix_bounded_values()
-        logger.info("Fixing range values...")
+        logger.debug("Fixing range values...")
         self.fix_range_fields()
-        logger.info("Fixing keyworded fields...")
+        logger.debug("Fixing keyworded fields...")
         self.fix_keyword_fields()
-        logger.info("Fixing temperature fields...")
+        logger.debug("Fixing temperature fields...")
         self.fix_temperature_fields()
-        logger.info("Fixing nationality fields...")
+        logger.debug("Fixing nationality fields...")
         self.fix_nationality_field()
-        logger.info("Fixing percentage fields...")
+        logger.debug("Fixing percentage fields...")
         self.fix_percentage_fields()
-        logger.info("Combining fields...")
+        logger.debug("Combining fields...")
         self.combine_fields()
 
     def filter_data(self):
