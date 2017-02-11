@@ -10,6 +10,27 @@
         cardiovascular_disease_history="0" 
         sickle_cell="0"/>
 
+    <user name="Anna" 
+        emoji=":information_desk_person:"
+        age="22"
+        sex="Female" 
+        weight="60" 
+        height="1.7" 
+        BMI="20"
+        nationality="White" 
+        cardiovascular_disease_history="0" 
+        sickle_cell="0"/>
+
+    <user name="Diana" 
+        emoji=":ghost:"
+        age="22"
+        sex="Female" 
+        weight="60" 
+        height="1.7" 
+        BMI="20"
+        nationality="White" 
+        cardiovascular_disease_history="0" 
+        sickle_cell="0"/>
 
     <user name="Arjun" 
         emoji=":man_with_turban:"
@@ -18,7 +39,7 @@
         weight="68.0" 
         height="1.7" 
         BMI="23.5" 
-        nationality="White" 
+        nationality="Indian" 
         cardiovascular_disease_history="0" 
         sickle_cell="0"/>
         
