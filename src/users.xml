@@ -1,7 +1,9 @@
 <?xml version="1.0"?>
 <usersdata>
     <user name="Jon" 
-        age="23" sex="Male"
+        emoji=":person_with_blond_hair:"
+        age="23"
+        sex="Male"
         weight="68.0"
         height="1.7" BMI="23.5"
         nationality="White"
@@ -10,6 +12,7 @@
 
 
     <user name="Arjun" 
+        emoji=":man_with_turban:"
         age="65" 
         sex="Male" 
         weight="68.0" 
