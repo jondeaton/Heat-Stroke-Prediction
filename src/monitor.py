@@ -12,6 +12,7 @@ import logging
 import coloredlogs
 import threading
 import pandas as pd
+import emoji
 
 coloredlogs.install(level='INFO')
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
@@ -57,13 +58,13 @@ class HeatStrokeMonitor(object):
         for port in self.serial_ports:
             try:
                 self.ser = serial.Serial(port)
-                logger.info("Opened port: %s successfully" % port)
+                logger.info(emoji.emojize("Opened port: %s successfully :heavy_check_mark:" % port))
                 break
             except:
-                logger.warning("Failed opening serial port: %s" % port)
+                logger.warning(emoji.emojize("Failed opening serial port: %s" % port))
 
         if self.port is None:
-            logger.error("Failed opening on all %d serial ports" % len(self.serial_ports))
+            logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(self.serial_ports)))
 
     def read_data_from_port(self, print=False):
         if self.port is None:

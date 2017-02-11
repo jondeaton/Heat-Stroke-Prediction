@@ -32,15 +32,15 @@ class PredictionHandler(object):
         
         logger.debug("Instantiating user...")
         self.user = user.MonitorUser(load=True, username=username)
-        logger.info(emoji.emojize("Monitor User: {name} :man_with_turban:".format(name=self.user.name)))
+        logger.info(emoji.emojize("Monitor user: %s %s" % (self.user.name, self.user.emoji)))
 
         logger.debug("Instantiating monitor...")
         self.monitor = monitor.HeatStrokeMonitor()
-        logger.debug("Monitor initialized")
+        logger.debug(emoji.emojize("Monitor instantiated :heavy_check_mark:"))
 
         logger.debug("Instantiating predictor...")
         self.predictor = predictor.HeatStrokePredictor()
-        logger.debug("Predictor initialized")
+        logger.debug(emoji.emojize("Predictor instantiated :heavy_check_mark:"))
         
         self.current_fields = self.user.series.keys()
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
@@ -61,15 +61,12 @@ class PredictionHandler(object):
 def test(args):
     logger.debug("Instantiating prediciton handler...")
     handler = PredictionHandler(username=args.user)
-    logger.debug("Instantiate prediction handler.")
+    logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
     handler.predictor.use_prefiltered = args.prefiltered
     handler.predictor.init_log_reg_predictor()
 
-    logger.info(emoji.emojize('Python is :thumbs_up_sign:'))
-    logger.info(emoji.emojize(':ballot_box_with_check:'))
-    logger.info(emoji.emojize(':white_check_mark:'))
-    logger.info(u"check! \xE2\x9C\x85")
+    logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
 
 def main():
