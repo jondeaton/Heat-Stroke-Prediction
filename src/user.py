@@ -11,6 +11,7 @@ class MonitorUser(object):
 		
 		self.series = pd.Series()
 		self.name = None
+		self.emoji = None
 		self.age = None
 		self.sex = None
 		self.weight = None
@@ -46,11 +47,12 @@ class MonitorUser(object):
 		users = tree.getroot()
 
 		for user in users:
-			if username is None or user['name'] == username:
+			if username is None or user.attrib['name'].lower() == username.lower():
 				user_attributes = user.attrib
 				break
 
 		self.name = user_attributes['name']
+		self.emoji = user_attributes['emoji']
 		self.age = int(user_attributes['age'])
 		self.sex = 1 if user_attributes['sex'] == "Male" else 0
 		self.weight = float(user_attributes['weight'])
