@@ -13,6 +13,8 @@ import coloredlogs
 import threading
 import pandas as pd
 import emoji
+import serial
+import warnings
 
 coloredlogs.install(level='INFO')
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
@@ -33,14 +35,20 @@ def parse(line):
 
 class HeatStrokeMonitor(object):
 
-    def __init__(self):
+    def __init__(self, port=None):
         self.init_time = time.time
         self.data_save_file = "monitor_data.csv"
-        self.serial_ports = ['/tmp/tty.LightBlue-Bean',
-                             '/tmp/cu.LightBlue-Bean', 
-                             '/dev/cu.LightBlue-Bean', 
-                             '/dev/cu.Bluetooth-Incoming-Port']
-        self.port = self.open_port()
+
+        if port is None:
+            self.serial_ports = ['/tmp/cu.LightBlue-Bean',
+                                 '/tmp/tty.LightBlue-Bean', 
+                                 '/dev/cu.LightBlue-Bean', 
+                                 '/dev/cu.Bluetooth-Incoming-Port']
+        else:
+            self.serial_ports = [port]
+
+        self.ser = None
+        self.open_port()
         
         self.HR_stream = pd.Series()
         self.ETemp_stream = pd.Series()
@@ -53,9 +61,9 @@ class HeatStrokeMonitor(object):
         "time GSR", "GSR", "time Acc", "Acc", "time SR", "SR"]
 
 
-    def open_port(self):
-        self.port = None
-        for port in self.serial_ports:
+    def open_port(self, port=None):
+        ports = self.serial_ports if port is None else [port]
+        for port in ports:
             try:
                 self.ser = serial.Serial(port)
                 logger.info(emoji.emojize("Opened port: %s successfully :heavy_check_mark:" % port))
@@ -63,11 +71,11 @@ class HeatStrokeMonitor(object):
             except:
                 logger.warning(emoji.emojize("Failed opening serial port: %s" % port))
 
-        if self.port is None:
-            logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(self.serial_ports)))
+        if self.ser is None:
+            logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(ports)))
 
     def read_data_from_port(self, print=False):
-        if self.port is None:
+        if self.ser is None:
             logger.error("No open serial port!")
             return
         try:
@@ -127,18 +135,42 @@ class HeatStrokeMonitor(object):
         save_file = file if file is not None else self.data_save_file
         logger.info("Saving data to: %s" % save_file)
         df.to_excel(save_file)
-        
+
 
 def main():
-    logger.info("Initiating HeatStrokeMonitor object...")
-    monitor = HeatStrokeMonitor()
-    logger.info("Initializing data reading...")
-    monitor.read_data(print=True)
+    import argparse
+    script_description = "This script tests Heat stroke monitor monitor connectivity"
+    parser = argparse.ArgumentParser(description=script_description)
 
-    logger.info("Reading data...")
-    save_thread = threading.Timer(20, monitor.save_data)
-    save_therad.start()
+    parser.add_argument("-p", "--port", required=False, help="Serial port specification")
 
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', help='Debug console')
+
+    args = parser.parse_args()
+
+    if args.debug:
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='DEBUG')
+    elif args.verbose:
+        warnings.filterwarnings('ignore')
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='INFO')
+    else:
+        warnings.filterwarnings('ignore')
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+        coloredlogs.install(level='WARNING')
+
+    logger.info("Testing: %s ..." % __file__)
+    logger.debug("Instantiating HeatStrokeMonitor object...")
+    monitor = HeatStrokeMonitor(port=args.port)
+
+    logger.info("Starting data reading...")
+    try:
+        monitor.read_data_from_port(print=True)
+    except:
+        logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
 if __name__ == "__main__":
     main()
