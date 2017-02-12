@@ -48,6 +48,7 @@ class HeatStrokeMonitor(object):
             self.serial_ports = [port]
 
         self.ser = None
+        self.bytes_read = 0
         self.open_port()
         
         self.HR_stream = pd.Series()
@@ -80,6 +81,7 @@ class HeatStrokeMonitor(object):
             return
         try:
             line = self.ser.readline()
+            self.bytes_read += len(line)
             if print:
                 logger.info("Read line: %s" % line)
             self.parse_incoming_line(line)
@@ -170,7 +172,7 @@ def main():
     try:
         monitor.read_data_from_port(print=True)
     except:
-        logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
+        logger.info(emoji.emojize(":heavy_check_mark: Test complete - %d bytes read" % monitor.bytes_read))
 
 if __name__ == "__main__":
     main()
