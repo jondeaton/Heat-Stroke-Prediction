@@ -49,13 +49,21 @@ class PredictionHandler(object):
         self.risk_series = pd.Series()
 
     def start_data_collection(self):
+        # This function initiates a thread (handled by HeatStrokeMonitor)
+        # that will continuously try to read and parse data from the Serial port
         monitor.read_data_from_port()
 
     def get_current_attributes(self):
+        # This function gets data from the MonitorUser instantiation and
+        # formats it in a way
         logger.warning("get_current_attributes not instantiated!")
 
+
     def make_predictoin(self):
+        # This function
         logger.warning("make_prediction not implemented!")
+
+
 
 
 def test(args):
@@ -65,6 +73,12 @@ def test(args):
 
     handler.predictor.use_prefiltered = args.prefiltered
     handler.predictor.init_log_reg_predictor()
+
+    try:
+        logger.info("Trying to read from serial port...")
+        monitor.read_data_from_port()
+    except:
+        logger.error("Error while reading from serial port.")
 
     logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
