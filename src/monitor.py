@@ -25,8 +25,35 @@ __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
 
 
-# Parses a line in to a 
+
+class SerialReadThread(threading.Timer):
+
+    def __init__(self, ser, bucket):
+        threading.Thread.__init__(self)
+        self.ser = ser
+        self.bucket = bucket
+
+    def run(self):
+        while not self.stopped.wait(0.01):
+            if self.ser is None:
+                logger.error("No open serial port!")
+                return
+            try:
+                line = self.ser.readline()
+                self.bytes_read += len(line)
+                if log:
+                    logger.info("Read line: %s" % line)
+                self.parse_incoming_line(line)
+            except:
+                pass
+
+
 def parse(line):
+    # This function parses a string read from serial of the form
+    # <identifier: <value>
+    # for example, a heart rate reading looks like:
+    # HR: 121
+    # which would result in a floating point return of 121.0 from this function
     try:
         vlaue = float(line[line.index[":"]:])
     except:
@@ -46,6 +73,8 @@ class HeatStrokeMonitor(object):
                                  '/dev/cu.Bluetooth-Incoming-Port']
         else:
             self.serial_ports = [port]
+
+        self.checker_thread = None
 
         self.ser = None
         self.bytes_read = 0
@@ -75,43 +104,48 @@ class HeatStrokeMonitor(object):
         if self.ser is None:
             logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(ports)))
 
-    def read_data_from_port(self, print=False):
+    def read_data_from_port(self, log=False):
         if self.ser is None:
             logger.error("No open serial port!")
             return
         try:
             line = self.ser.readline()
             self.bytes_read += len(line)
-            if print:
+            if log:
                 logger.info("Read line: %s" % line)
             self.parse_incoming_line(line)
         except:
             pass
-        self.checker_thread = threading.Timer(0.01, self.serial_checker)
+
+        # stopFlag = Event()
+        # thread = SerialReadThread(stopFlag)
+        # thread.start()
+
+        self.checker_thread = threading.Timer(0.01, self.read_data_from_port)
         self.checker_thread.start()
 
     def parse_incoming_line(self, line):
-    	now = time.time()
+        now = time.time()
 
-    	parsed_line = parse(line)
-    	# Check to make sure that it was parsed
-    	if parsed_line is None:
-    		return
+        parsed_line = parse(line)
+        # Check to make sure that it was parsed
+        if parsed_line is None:
+            return
 
-    	if line.startswith("HR:"): # Heart Rate
-    		self.HR_stream.set_value(time, parsed_line)
-    	elif line.startswith("ET:"): # Environmental Temperature
-    		self.ETemp_stream.set_value(time, parsed_line)
-    	elif line.startswith("ST:"): # Skin Temperature
-    		self.STemp_stream.set_value(time, parsed_line)
-    	elif line.startswith("GSR:"): # Galvanic Skin Response
-    		self.GSR_stream.set_value(time, parsed_line)
-    	elif line.startswith("Acc:"): # Acceleration
-    		self.Acc_stream.set_value(time, parsed_line)
-    	elif line.startswith("SR:"): # Skin Reflectivity...? LOL
-    		self.Skin_stream.set_value(time, parsed_line)
-    	else:
-    		logger.warning("No parse: %s" % line)
+        if line.startswith("HR:"): # Heart Rate
+            self.HR_stream.set_value(now, parsed_line)
+        elif line.startswith("ET:"): # Environmental Temperature
+            self.ETemp_stream.set_value(now, parsed_line)
+        elif line.startswith("ST:"): # Skin Temperature
+            self.STemp_stream.set_value(now, parsed_line)
+        elif line.startswith("GSR:"): # Galvanic Skin Response
+            self.GSR_stream.set_value(now, parsed_line)
+        elif line.startswith("Acc:"): # Acceleration
+            self.Acc_stream.set_value(now, parsed_line)
+        elif line.startswith("SR:"): # Skin Reflectivity...? LOL
+            self.Skin_stream.set_value(now, parsed_line)
+        else:
+            logger.warning("No parse: %s" % line)
 
     def save_data(self, file=None):
         df = pd.DataFrame(columns = self.fields)
@@ -138,6 +172,17 @@ class HeatStrokeMonitor(object):
         logger.info("Saving data to: %s" % save_file)
         df.to_excel(save_file)
 
+def test(args):
+    logger.info("Testing: %s ..." % __file__)
+    logger.debug("Instantiating HeatStrokeMonitor object...")
+    monitor = HeatStrokeMonitor(port=args.port)
+
+    logger.info("Starting data reading (control-C to exit)...")
+    # monitor.read_data_from_port(print=True)
+    try:
+        monitor.read_data_from_port(log=True)
+    except:
+        logger.info(emoji.emojize(":heavy_check_mark: Test complete - %d bytes read" % monitor.bytes_read))
 
 def main():
     import argparse
@@ -164,15 +209,7 @@ def main():
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
         coloredlogs.install(level='WARNING')
 
-    logger.info("Testing: %s ..." % __file__)
-    logger.debug("Instantiating HeatStrokeMonitor object...")
-    monitor = HeatStrokeMonitor(port=args.port)
-
-    logger.info("Starting data reading...")
-    try:
-        monitor.read_data_from_port(print=True)
-    except:
-        logger.info(emoji.emojize(":heavy_check_mark: Test complete - %d bytes read" % monitor.bytes_read))
+    test(args)
 
 if __name__ == "__main__":
     main()
