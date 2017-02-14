@@ -11,6 +11,8 @@ import copy
 import argparse
 import logging
 import warnings
+import coloredlogs
+from termcolor import colored
 
 import numpy as np
 import pandas as pd
@@ -29,8 +31,8 @@ from scipy.cluster.vq import whiten
 
 import read_data
 
-
-logging.basicConfig(format='[%(funcName)s] - %(message)s')
+coloredlogs.install(level='INFO')
+logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -42,8 +44,11 @@ class CrossValidator(object):
         self.roc_filename = "roc_curve.svg"
         self.prc_filename = "prc_plot.svg"
         self.margins_filename = "margins.svg"
+        self.metrics_filename = "cv_metrics.csv"
         self.roc_colors = cycle(['cyan', 'indigo', 'seagreen', 'yellow', 'blue', 'darkorange'])
         
+        self.show_plots = False
+
         self.N_fold = 6
         self.cv = StratifiedKFold(n_splits=self.N_fold, shuffle=True)
         self.use_svm = False
@@ -70,7 +75,7 @@ class CrossValidator(object):
         else:
             self.classifier = linear_model.LogisticRegression(C=1e5)
 
-    def make_margins_plot(self, feature1='Patient temperature', feature2='Heart / Pulse rate (b/min)'):
+    def make_margins_plot(self, feature1='Environmental temperature (C)', feature2='Relative Humidity'):
         # This plot makes a seperating hyperplane
         if self.use_all_fields:
             feature_list = self.all_fields
@@ -112,13 +117,13 @@ class CrossValidator(object):
         plt.ylim([y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)])
         plt.title("SVM Margins Plot")
 
-
         plt.xlabel(feature_list[dim0])
         plt.ylabel(feature_list[dim1])
         plt.legend()
         plt.grid(True)
         plt.savefig(self.margins_filename)
-        plt.show()
+        if self.show_plots:
+            plt.show()
 
     def CV_all(self):
 
@@ -141,14 +146,14 @@ class CrossValidator(object):
             self.X = np.array(self.X)
 
         self.classifier.fit(self.X, self.y)
-        print("Coefficients: %s" % self.classifier.coef_[0])
+        logger.info("Coefficients: %s" % self.classifier.coef_[0])
 
         if self.use_svm:
             logger.info("Making margins plot...")
             self.make_margins_plot()
 
         logger.info("Cross Validating...")
-        self.CV_accuracy()
+        self.CV_metrics()
 
         logger.info("Cross validating for sensitivity/specificity...")
         self.CV_sensitivity_specificity()
@@ -193,7 +198,8 @@ class CrossValidator(object):
         except:
             output_file = self.roc_filename
         plt.savefig(output_file)
-        logger.info("ROC saved: %s", os.path.basename(output_file))
+        if self.show_plots:
+            plt.show()
 
     def CV_precision_recall(self):
         # Precision Recall Curve
@@ -229,21 +235,41 @@ class CrossValidator(object):
         plt.title('%d-Fold Cross Validation Precision Recall' % self.N_fold, fontsize=12, **hfont)
         plt.legend(fontsize=8, loc='lower left', title="Legend",  fancybox=True)
         plt.savefig(self.prc_filename)
+        if self.show_plots:
+            plt.show()
 
-    def CV_accuracy(self):
+    def CV_metrics(self):
         """
         This function performs cross validation on the this instances data frame
         :return: None
         """
-        self.scores = sklearn.model_selection.cross_val_score(self.classifier, self.X, self.y, cv=self.cv)
-        predicted = sklearn.model_selection.cross_val_predict(self.classifier, self.X, self.y, cv=self.cv)
-        self.accuracy = metrics.accuracy_score(self.df[self.outcome_field], predicted)
-        self.fscore = metrics.f1_score(self.df[self.outcome_field], predicted)
 
-        print("Scores: %s" % self.scores)
-        print("Prediction Accuracy: %f" % self.accuracy)
-        print("Scoring accuracy: %0.2f (+/- %0.2f)" % (self.scores.mean(), self.scores.std() * 2))
-        print("Fscore: %f" % self.fscore)
+        df = pd.DataFrame()
+
+        self.scores = sklearn.model_selection.cross_val_score(self.classifier, self.X, self.y, cv=self.cv)
+        y_pred = sklearn.model_selection.cross_val_predict(self.classifier, self.X, self.y, cv=self.cv)
+        self.accuracy = metrics.accuracy_score(self.df[self.outcome_field], y_pred)
+        self.fscore = metrics.f1_score(self.df[self.outcome_field], y_pred)
+        fpr, tpr, thresholds = metrics.roc_curve(self.y, y_pred, pos_label=2)
+
+        FPR = fpr[np.argmin(np.abs(thresholds))]
+
+        y_true = self.df[self.outcome_field]
+
+        df['Accuracy'] = [self.scores.mean()]
+        df['F-Score'] = [self.fscore]
+        df['AUC'] = metrics.roc_auc_score(y_true, y_pred)
+        df['Sensitivity'] = [1 - FPR]
+        df['Recall'] = metrics.recall_score(y_true, y_pred)
+        df['Precision'] = metrics.precision_score(y_true, y_pred)
+        df['Hamming Loss'] = metrics.hamming_loss(y_true, y_pred)
+        df['MCC'] = metrics.matthews_corrcoef(y_true, y_pred)
+
+        for field in df.columns:
+            logger.info(colored("%s: %f" % (field, df[field]), 'yellow'))
+
+        df['Classifier'] = str(self.classifier)
+        df.to_csv(self.metrics_filename)
 
 def main():
 
@@ -263,24 +289,25 @@ def main():
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
     options_group.add_argument('-N', '--num-negative', dest='num_negative', type=int, default=500, required=False, help="Number of negative data points")
     options_group.add_argument('-svm', '--svm', action="store_true", help="Use Support Vector Machine")
+    options_group.add_argument('-show', "--show-plots", dest="show_plots", action="store_true", help="Display plots while running")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     console_options_group.add_argument('--debug', action='store_true', help='Debug console')
 
     args = parser.parse_args()
-
+    
     if args.debug:
-        logger.setLevel(logging.DEBUG)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='DEBUG')
     elif args.verbose:
         warnings.filterwarnings('ignore')
-        logger.setLevel(logging.INFO)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='INFO')
     else:
         warnings.filterwarnings('ignore')
-        logger.setLevel(logging.WARNING)
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+        coloredlogs.install(level='WARNING')
 
     reader = read_data.HeatStrokeDataFiller()
     reader.use_fake_data = args.fake
@@ -300,6 +327,7 @@ def main():
     cross_validator = CrossValidator()
     cross_validator.df = copy.deepcopy(reader.df)
     cross_validator.use_all_fields = args.all_fields
+    cross_validator.show_plots = args.show_plots
     cross_validator.use_svm = args.svm
     cross_validator.set_classifier()
     cross_validator.CV_all()
