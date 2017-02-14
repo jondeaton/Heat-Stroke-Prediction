@@ -8,9 +8,12 @@ objects and couriers data between them to get and report predictions of heat str
 '''
 
 import time
-import pandas as pd
+import threading
 import logging
 import warnings
+
+import pandas as pd
+
 import emoji
 import coloredlogs
 
@@ -25,6 +28,24 @@ logger = logging.getLogger(__name__)
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
+
+
+class PredictionThread(threading.Timer):
+    # This class is a thread for reading lines
+    # from a serial port
+
+    def __init__(self, callback):
+        threading.Thread.__init__(self)
+        self.callback = callback
+        self._is_running = True
+
+    def run(self):
+        while self._is_running:
+            self.callback()
+            time.sleep(5)
+
+    def stop(self):
+        self._is_running = False
 
 class PredictionHandler(object):
 
@@ -47,23 +68,28 @@ class PredictionHandler(object):
                              'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
 
         self.risk_series = pd.Series()
+        self.prediciton_thread = PredictionThread(self.make_prediction)
 
     def start_data_collection(self):
         # This function initiates a thread (handled by HeatStrokeMonitor)
         # that will continuously try to read and parse data from the Serial port
-        monitor.read_data_from_port()
+        self.monitor.read_data_from_port()
+
+    def start_prediction_thread(self):
+        # Start the prediction thread
+        self.prediciton_thread.start()
+
+    def stop_prediction_thread(self):
+        # For starting the predicont thread
+        self.prediciton_thread.stop()
 
     def get_current_attributes(self):
-        # This function gets data from the MonitorUser instantiation and
-        # formats it in a way
-        logger.warning("get_current_attributes not instantiated!")
+        # This function gets data from the MonitorUser instantiation and formats it in a way
+        logger.warning("get_current_attributes not implemented!")
 
-
-    def make_predictoin(self):
-        # This function
+    def make_prediction(self):
+        # This funciton makes a prediction
         logger.warning("make_prediction not implemented!")
-
-
 
 
 def test(args):
@@ -74,14 +100,20 @@ def test(args):
     handler.predictor.use_prefiltered = args.prefiltered
     handler.predictor.init_log_reg_predictor()
 
+    handler.monitor.set_threading_class(test=args.no_bean)
+    logger.info("Starting data collection...")
+    handler.start_data_collection()
+    logger.info("Starting prediction thread...")
+    handler.start_prediction_thread()
+
     try:
-        logger.info("Trying to read from serial port...")
-        monitor.read_data_from_port()
-    except:
-        logger.error("Error while reading from serial port.")
+        input("Press Enter to continue...")
+    except KeyboardInterrupt:
+        logger.warning("Keyboard Interrupted.")
 
+    handler.stop_prediction_thread()
+    handler.monitor.stop_data_read()
     logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
-
 
 def main():
     import argparse
@@ -100,6 +132,7 @@ def main():
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
     options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing")
     options_group.add_argument('-u', '--user', default=None, help="Monitor user name")
+    options_group.add_argument('-nb', '--no-bean', dest="no_bean", action="store_true", help="Don't read from serial port")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')

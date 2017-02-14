@@ -6,7 +6,6 @@ This script implements a class called HeatStrokeMonitor that handles reading dat
 port that is being written to by e blue bean, and handles the storage of that data.
 '''
 
-import os
 import time
 import logging
 import coloredlogs
@@ -15,50 +14,79 @@ import pandas as pd
 import emoji
 import serial
 import warnings
+import random
+
+import numpy as np
 
 coloredlogs.install(level='INFO')
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
 
 
-
 class SerialReadThread(threading.Timer):
+    # This class is a thread for reading lines
+    # from a serial port
 
-    def __init__(self, ser, bucket):
+    def __init__(self, ser, callback, verbose=False):
         threading.Thread.__init__(self)
         self.ser = ser
-        self.bucket = bucket
+        self.callback = callback
+        self.verbose = verbose
+        self.bytes_read = 0
+        self._is_running = False
 
     def run(self):
-        while not self.stopped.wait(0.01):
+        while self._is_running:
+
             if self.ser is None:
                 logger.error("No open serial port!")
                 return
+                
             try:
                 line = self.ser.readline()
                 self.bytes_read += len(line)
-                if log:
+                if verbose:
                     logger.info("Read line: %s" % line)
-                self.parse_incoming_line(line)
+                self.callback(line)
             except:
                 pass
 
+            time.sleep(0.01)
 
-def parse(line):
-    # This function parses a string read from serial of the form
-    # <identifier: <value>
-    # for example, a heart rate reading looks like:
-    # HR: 121
-    # which would result in a floating point return of 121.0 from this function
-    try:
-        vlaue = float(line[line.index[":"]:])
-    except:
-        value = None
-    return value
+    # For stopping the thread
+    def stop(self):
+        self._is_running = False
+
+
+class TestSerialReadThread(threading.Timer):
+    # This class is for testing without Bluetooth connectivity
+
+    def __init__(self, ser, callback, verbose=True):
+        threading.Thread.__init__(self)
+        self.ser = ser
+        self.callback = callback
+        self.verbose = verbose
+        self.bytes_read = 0
+        self._is_running = True
+
+    def run(self):
+        while self._is_running:
+            fields = ['HR', 'ET', 'ST', 'GSR', 'Acc', 'SR']
+            field = random.choice(fields)
+            value = 50 + 50 * np.random.random()
+            line = "{field}: {value}".format(field=field, value=value)
+            logger.info("Read line: \"%s\"" % line)
+            self.callback(line)
+            self.bytes_read += len(line)
+            time.sleep(0.3)
+
+    # For stopping the thread
+    def stop(self):
+        self._is_running = False
+
 
 class HeatStrokeMonitor(object):
 
@@ -74,6 +102,7 @@ class HeatStrokeMonitor(object):
         else:
             self.serial_ports = [port]
 
+        self.set_threading_class(test=False)
         self.checker_thread = None
 
         self.ser = None
@@ -90,7 +119,6 @@ class HeatStrokeMonitor(object):
         self.fields = ["time HR", "HR", "time ET", "ET", "time ST", "ST",
         "time GSR", "GSR", "time Acc", "Acc", "time SR", "SR"]
 
-
     def open_port(self, port=None):
         ports = self.serial_ports if port is None else [port]
         for port in ports:
@@ -105,24 +133,34 @@ class HeatStrokeMonitor(object):
             logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(ports)))
 
     def read_data_from_port(self, log=False):
-        if self.ser is None:
-            logger.error("No open serial port!")
-            return
-        try:
-            line = self.ser.readline()
-            self.bytes_read += len(line)
-            if log:
-                logger.info("Read line: %s" % line)
-            self.parse_incoming_line(line)
-        except:
-            pass
+        
+        self.read_thread = self.threading_class(self.ser, self.parse_incoming_line, verbose=log)
+        self._is_running = True
+        logger.debug("Current number of threads: %d" % threading.activeCount())
+        logger.debug("Starting data read thread...")
+        self.read_thread.start()
+        logger.debug("Current number of threads: %d" % threading.activeCount())
 
-        # stopFlag = Event()
-        # thread = SerialReadThread(stopFlag)
-        # thread.start()
+        # if self.ser is None:
+        #     logger.error("No open serial port!")
+        #     return
+        # try:
+        #     line = self.ser.readline()
+        #     self.bytes_read += len(line)
+        #     if log:
+        #         logger.info("Read line: %s" % line)
+        #     self.parse_incoming_line(line)
+        # except:
+        #     pass
 
-        self.checker_thread = threading.Timer(0.01, self.read_data_from_port)
-        self.checker_thread.start()
+        # self.checker_thread = threading.Timer(0.01, self.read_data_from_port)
+        # self.checker_thread.start()
+
+    def stop_data_read(self):
+        # This stopps data read
+        logger.debug("Sending stop signal to data read thread...")
+        self.read_thread.stop()
+        logger.debug("Stop signal sent. Threads: %d" % threading.activeCount())
 
     def parse_incoming_line(self, line):
         now = time.time()
@@ -172,23 +210,47 @@ class HeatStrokeMonitor(object):
         logger.info("Saving data to: %s" % save_file)
         df.to_excel(save_file)
 
+    def set_threading_class(self, test=False):
+        # 
+        self.threading_class = SerialReadThread if not test else TestSerialReadThread
+
+def parse(line):
+    # This function parses a string read from serial of the form
+    # <identifier: <value>
+    # for example, a heart rate reading looks like:
+    # HR: 121
+    # which would result in a floating point return of 121.0 from this function
+    try:
+        vlaue = float(line[line.index[":"]:])
+    except:
+        value = None
+    return value
+
+
 def test(args):
     logger.info("Testing: %s ..." % __file__)
     logger.debug("Instantiating HeatStrokeMonitor object...")
     monitor = HeatStrokeMonitor(port=args.port)
+    monitor.set_threading_class(test=args.test)
 
     logger.info("Starting data reading (control-C to exit)...")
     # monitor.read_data_from_port(print=True)
-    try:
-        monitor.read_data_from_port(log=True)
-    except:
-        logger.info(emoji.emojize(":heavy_check_mark: Test complete - %d bytes read" % monitor.bytes_read))
+    monitor.read_data_from_port(log=True)
+
+    sec = 5
+    logger.debug("Pausing for %d seconds..." % sec)  
+    time.sleep(sec)
+
+    monitor.stop_data_read()
+
+    logger.info(emoji.emojize(":heavy_check_mark: Test complete - %d bytes read" % monitor.read_thread.bytes_read))
 
 def main():
     import argparse
     script_description = "This script tests Heat stroke monitor monitor connectivity"
     parser = argparse.ArgumentParser(description=script_description)
 
+    parser.add_argument("--test", action="store_true", help="Run tests")
     parser.add_argument("-p", "--port", required=False, help="Serial port specification")
 
     console_options_group = parser.add_argument_group("Console Options")
@@ -209,7 +271,10 @@ def main():
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
         coloredlogs.install(level='WARNING')
 
-    test(args)
+    if args.test:
+        test(args)
+    else:
+        test(args)
 
 if __name__ == "__main__":
     main()
