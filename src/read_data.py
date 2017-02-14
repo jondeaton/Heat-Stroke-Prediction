@@ -11,7 +11,6 @@ and then saves the resulting data to file for later use.
 """
 
 import os
-import argparse
 import string
 import logging
 import numpy as np
@@ -19,10 +18,25 @@ import pandas as pd
 import warnings
 import datetime
 import copy
+import coloredlogs
 
+coloredlogs.install(level='INFO')
 logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.INFO)
+logger.setLevel(logging.NOTSET)
+
+'''
+For potential future use
+
+handler = logging.StreamHandler()
+handler.addFilter(coloredlogs.HostNameFilter())
+handler.setFormatter(logging.Formatter('[%(hostname)s] %(message)s'))
+logger = logging.getLogger()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+logger.info("Does it work?")
+'''
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
@@ -392,7 +406,7 @@ class HeatStrokeDataFiller(object):
         return negative_df
 
 def main():
-
+    import argparse
     script_description = "This script reads and fills in data from files"
     parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -408,16 +422,16 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        logger.setLevel(logging.DEBUG)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='DEBUG')
     elif args.verbose:
         warnings.filterwarnings('ignore')
-        logger.setLevel(logging.INFO)
         logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        coloredlogs.install(level='INFO')
     else:
         warnings.filterwarnings('ignore')
-        logger.setLevel(logging.WARNING)
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+        coloredlogs.install(level='WARNING')
 
 
     data_filter = HeatStrokeDataFiller()
