@@ -182,7 +182,7 @@ class HeatStrokeMonitor(object):
                                     self.Skin_stream.size])
 
 
-        df = pd.DataFrame(columns = self.fields, index=range(y))
+        df = pd.DataFrame(columns = self.fields, index=range(max_num_measurements))
 
         df.loc[range(self.HR_stream.size), "time HR"] = self.HR_stream.keys()
         df.loc[range(self.HR_stream.size), "HR"] = self.HR_stream.values

@@ -71,6 +71,7 @@ class PredictionHandler(object):
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
                              'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
 
+        
         self.risk_series = pd.Series()
 
         self.prediciton_thread = LoopingThread(self.make_prediction, 5)
