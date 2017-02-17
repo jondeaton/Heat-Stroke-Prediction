@@ -141,6 +141,9 @@ class HeatStrokePredictor(object):
         return core_temp_series
 
     def core_temperature_risk(self, heart_rate_series, skin_temperature_series, CTstart=37):
+        # This function estimates risk of Heat Stroke based on core temperature
+        # estimation from heart rate
+
         core_temp_series = self.estimate_core_temperature(heart_rate_series, CTstart)
         most_recent_CT_time = max(core_temp_series.keys())
         most_recent_ST_time = mac(skin_temperature_series.keys())

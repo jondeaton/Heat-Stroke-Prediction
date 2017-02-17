@@ -13,9 +13,11 @@ import logging
 import warnings
 
 import pandas as pd
+import numpy as np
 
 import emoji
 import coloredlogs
+from termcolor import colored
 
 import user
 import monitor
@@ -30,22 +32,24 @@ __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
 
 
-class PredictionThread(threading.Timer):
-    # This class is a thread for reading lines
-    # from a serial port
+class LoopingThread(threading.Timer):
+    # This is a thread that performs some action
+    # repeatedly at a given interval
 
-    def __init__(self, callback):
+    def __init__(self, callabck, wait_time):
         threading.Thread.__init__(self)
         self.callback = callback
+        self.wait_time = wait_time
         self._is_running = True
 
     def run(self):
         while self._is_running:
             self.callback()
-            time.sleep(5)
+            time.sleep(self.wait_time)
 
     def stop(self):
         self._is_running = False
+
 
 class PredictionHandler(object):
 
@@ -68,7 +72,11 @@ class PredictionHandler(object):
                              'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
 
         self.risk_series = pd.Series()
-        self.prediciton_thread = PredictionThread(self.make_prediction)
+
+        self.prediciton_thread = LoopingThread(self.make_prediction, 5)
+        sefl.saving_thread = LoopingThread(self.monitor.save_data, 30)
+
+        self.risk_csv_file = "risk_series.csv"
 
     def start_data_collection(self):
         # This function initiates a thread (handled by HeatStrokeMonitor)
@@ -85,12 +93,24 @@ class PredictionHandler(object):
 
     def get_current_attributes(self):
         # This function gets data from the MonitorUser instantiation and formats it in a way
-        logger.warning("get_current_attributes not implemented!")
+        #logger.warning("get_current_attributes not implemented!")
+        user_attributes = user.get_user_attributes()
+
 
     def make_prediction(self):
         # This funciton makes a prediction
-        logger.warning("make_prediction not implemented!")
+        user_attributes = self.get_current_attributes()
+        try:
+            risk = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream)
+        except:
+            risk = np.random.random()
+        now = time.time()
+        emojis = ":fire: " * int(risk / 0.1) + ":snowflake: " * int((1 - risk) / 0.1)
+        logger.info(colored(emoji.emojize("Current risk: %f %s" % (risk, emojis)), 'red'))
+        self.risk_series[now] = risk
 
+    def save_risk_series(self):
+        self.risk_series.to_csv(self.risk_csv_file)
 
 def test(args):
     logger.debug("Instantiating prediciton handler...")
@@ -107,12 +127,16 @@ def test(args):
     handler.start_prediction_thread()
 
     try:
-        input("Press Enter to continue...")
+    	logger.warning("Pausing main thres (press any key to aboard)...")
+    	input("")
     except KeyboardInterrupt:
-        logger.warning("Keyboard Interrupted.")
+        logger.warning("Keyboard Interrupt. Terminating threads...")
 
     handler.stop_prediction_thread()
     handler.monitor.stop_data_read()
+    logger.debug("Saving data...")
+    handler.monitor.save_data()
+    handler.save_risk_series()
     logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
 def main():
@@ -156,7 +180,7 @@ def main():
         logger.info(emoji.emojize('Initializing test... :fire: :fire: :fire:'))
         test(args)
     else:
-        logger.warning("Integrated testing not yet implemented. Use --test flag.")
+        logger.warning("Integrated prediction not yet implemented. Use the --test flag.")
 
 
 if __name__ == "__main__":
