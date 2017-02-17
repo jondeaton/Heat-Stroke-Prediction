@@ -36,7 +36,7 @@ class LoopingThread(threading.Timer):
     # This is a thread that performs some action
     # repeatedly at a given interval
 
-    def __init__(self, callabck, wait_time):
+    def __init__(self, callback, wait_time):
         threading.Thread.__init__(self)
         self.callback = callback
         self.wait_time = wait_time
@@ -71,11 +71,10 @@ class PredictionHandler(object):
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
                              'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
 
-        
         self.risk_series = pd.Series()
 
         self.prediciton_thread = LoopingThread(self.make_prediction, 5)
-        sefl.saving_thread = LoopingThread(self.monitor.save_data, 30)
+        self.saving_thread = LoopingThread(self.monitor.save_data, 30)
 
         self.risk_csv_file = "risk_series.csv"
 
@@ -108,7 +107,7 @@ class PredictionHandler(object):
         now = time.time()
         emojis = ":fire: " * int(risk / 0.1) + ":snowflake: " * int((1 - risk) / 0.1)
         logger.info(colored(emoji.emojize("Current risk: %f %s" % (risk, emojis)), 'red'))
-        self.risk_series[now] = risk
+        self.risk_series.set_value(now, risk)
 
     def save_risk_series(self):
         self.risk_series.to_csv(self.risk_csv_file)
@@ -129,7 +128,8 @@ def test(args):
 
     try:
     	logger.warning("Pausing main thres (press any key to aboard)...")
-    	input("")
+    	while True:
+            input("")
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt. Terminating threads...")
 
