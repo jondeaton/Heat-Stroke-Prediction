@@ -23,7 +23,22 @@ class MonitorUser(object):
 
 		if load:
 			self.load_from_file(username)
-			
+	
+
+	def get_user_attributes(self):
+		# This function makes
+		user_attributes = pd.Series()
+		user_attributes.set_value('Age', self.age)
+		user_attributes.set_value('Sex', self.sex)
+		user_attributes.set_value('Weight (kg)', self.weight)
+		user_attributes.set_value('Height', self.height)
+		user_attributes.set_value('BMI', self.BMI)
+		user_attributes.set_value('Nationality', self.nationality)
+		user_attributes.set_value('Cardiovascular disease history', self.cardiovascular_disease_history)
+		user_attributes.set_value('Sickle Cell Trait (SCT)', self.sickle_cell)
+		return user_attributes
+		
+
 	def update_series(self):
 		self.series['Name'] = self.name
 		self.series['Sex'] = self.sex
