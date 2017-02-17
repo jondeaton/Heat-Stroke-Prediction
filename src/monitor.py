@@ -60,7 +60,6 @@ class SerialReadThread(threading.Timer):
     def stop(self):
         self._is_running = False
 
-
 class TestSerialReadThread(threading.Timer):
     # This class is for testing without Bluetooth connectivity
 
@@ -74,7 +73,7 @@ class TestSerialReadThread(threading.Timer):
 
     def run(self):
         while self._is_running:
-            fields = ['HR', 'ET', 'ST', 'GSR', 'Acc', 'SR']
+            fields = ['HR', 'ET', 'EH', 'ST', 'GSR', 'Acc', 'SR']
             field = random.choice(fields)
             value = 50 + 50 * np.random.random()
             line = "{field}: {value}".format(field=field, value=value)
@@ -86,7 +85,6 @@ class TestSerialReadThread(threading.Timer):
     # For stopping the thread
     def stop(self):
         self._is_running = False
-
 
 class HeatStrokeMonitor(object):
 
@@ -111,13 +109,15 @@ class HeatStrokeMonitor(object):
         
         self.HR_stream = pd.Series()
         self.ETemp_stream = pd.Series()
+        self.EHumid_stream = pd.Series()
         self.STemp_stream = pd.Series()
         self.GSR_stream = pd.Series()
         self.Acc_stream = pd.Series()
         self.Skin_stream = pd.Series()
 
-        self.fields = ["time HR", "HR", "time ET", "ET", "time ST", "ST",
-        "time GSR", "GSR", "time Acc", "Acc", "time SR", "SR"]
+        self.parameters = ["HR", "ET", "EH", "ST", "GSR", "Acc", "SR"]
+        self.fields = np.ravel([["time %s" % param, param] for param in self.parameters])
+
 
     def open_port(self, port=None):
         ports = self.serial_ports if port is None else [port]
@@ -133,7 +133,7 @@ class HeatStrokeMonitor(object):
             logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(ports)))
 
     def read_data_from_port(self, log=False):
-        
+        # This function starts a new thread that will continuously read data from the serial port
         self.read_thread = self.threading_class(self.ser, self.parse_incoming_line, verbose=log)
         self._is_running = True
         logger.debug("Current number of threads: %d" % threading.activeCount())
@@ -141,23 +141,8 @@ class HeatStrokeMonitor(object):
         self.read_thread.start()
         logger.debug("Current number of threads: %d" % threading.activeCount())
 
-        # if self.ser is None:
-        #     logger.error("No open serial port!")
-        #     return
-        # try:
-        #     line = self.ser.readline()
-        #     self.bytes_read += len(line)
-        #     if log:
-        #         logger.info("Read line: %s" % line)
-        #     self.parse_incoming_line(line)
-        # except:
-        #     pass
-
-        # self.checker_thread = threading.Timer(0.01, self.read_data_from_port)
-        # self.checker_thread.start()
-
     def stop_data_read(self):
-        # This stopps data read
+        # This stopps the thread that is reading the data
         logger.debug("Sending stop signal to data read thread...")
         self.read_thread.stop()
         logger.debug("Stop signal sent. Threads: %d" % threading.activeCount())
@@ -166,6 +151,7 @@ class HeatStrokeMonitor(object):
         now = time.time()
 
         parsed_line = parse(line)
+        
         # Check to make sure that it was parsed
         if parsed_line is None:
             return
@@ -174,6 +160,8 @@ class HeatStrokeMonitor(object):
             self.HR_stream.set_value(now, parsed_line)
         elif line.startswith("ET:"): # Environmental Temperature
             self.ETemp_stream.set_value(now, parsed_line)
+        elif line.startswith("EH:"): # Environmental Humidity
+            self.EHumid_stream.set_value(now, parsed_line)
         elif line.startswith("ST:"): # Skin Temperature
             self.STemp_stream.set_value(now, parsed_line)
         elif line.startswith("GSR:"): # Galvanic Skin Response
@@ -185,33 +173,45 @@ class HeatStrokeMonitor(object):
         else:
             logger.warning("No parse: %s" % line)
 
+
     def save_data(self, file=None):
-        df = pd.DataFrame(columns = self.fields)
+        # This function saves the data that has been gathered to an excel file
+        max_num_measurements = max([self.HR_stream.size, self.ETemp_stream.size, 
+                                    self.EHumid_stream.size, self.STemp_stream.size,
+                                    self.GSR_stream.size, self.Acc_stream.size, 
+                                    self.Skin_stream.size])
 
-        df["time HR"].loc[0:self.HR_stream.size] = self.HR_stream.keys()
-        df["HR"].loc[0:self.HR_stream.size] = self.HR_stream.values
 
-        df["time ET"].loc[0:self.ETemp_stream.size] = self.ETemp_stream.keys()
-        df["ET"].loc[0:self.ETemp_stream.size] = self.ETemp_stream.values
+        df = pd.DataFrame(columns = self.fields, index=range(y))
 
-        df["time ST"].loc[0:self.STemp_stream.size] = self.STemp_stream.keys()
-        df["ST"].loc[0:self.STemp_stream.size] = self.STemp_stream.values
+        df.loc[range(self.HR_stream.size), "time HR"] = self.HR_stream.keys()
+        df.loc[range(self.HR_stream.size), "HR"] = self.HR_stream.values
 
-        df["time GSR"].loc[0:self.GSR_stream.size] = self.GSR_stream.keys()
-        df["GSR"].loc[0:self.GSR_stream.size] = self.GSR_stream.values
+        df.loc[range(self.ETemp_stream.size), "time ET"] = self.ETemp_stream.keys()
+        df.loc[range(self.ETemp_stream.size), "ET"] = self.ETemp_stream.values
 
-        df["time Acc"].loc[0:self.Acc_stream.size] = self.Acc_stream.keys()
-        df["Acc"].loc[0:self.Acc_stream.size] = self.Acc_stream.values
+        df.loc[range(self.EHumid_stream.size), "time EH"] = self.EHumid_stream.keys()
+        df.loc[range(self.EHumid_stream.size), "EH"] = self.EHumid_stream.values
 
-        df["time SR"].loc[0:self.Skin_stream.size] = self.Skin_stream.keys()
-        df["SR"].loc[0:self.Skin_stream.size] = self.Skin_stream.values
+        df.loc[range(self.STemp_stream.size), "time ST"] = self.STemp_stream.keys()
+        df.loc[range(self.STemp_stream.size), "ST"] = self.STemp_stream.values
+
+        df.loc[range(self.GSR_stream.size), "time GSR"] = self.GSR_stream.keys()
+        df.loc[range(self.GSR_stream.size), "GSR"] = self.GSR_stream.values
+
+        df.loc[range(self.Acc_stream.size), "time Acc"] = self.Acc_stream.keys()
+        df.loc[range(self.Acc_stream.size), "Acc"] = self.Acc_stream.values
+
+        df.loc[range(self.Skin_stream.size), "time SR"] = self.Skin_stream.keys()
+        df.loc[range(self.Skin_stream.size), "SR"] = self.Skin_stream.values
 
         save_file = file if file is not None else self.data_save_file
-        logger.info("Saving data to: %s" % save_file)
-        df.to_excel(save_file)
+        logger.debug("Saving data to: %s" % save_file)
+        df.to_csv(save_file)
 
     def set_threading_class(self, test=False):
-        # 
+        # This function decides whether the testing thread class or the real serial port
+        # thread class will be used 
         self.threading_class = SerialReadThread if not test else TestSerialReadThread
 
 def parse(line):
@@ -221,7 +221,7 @@ def parse(line):
     # HR: 121
     # which would result in a floating point return of 121.0 from this function
     try:
-        vlaue = float(line[line.index[":"]:])
+        value = float(line[2 + line.index(":"):])
     except:
         value = None
     return value
