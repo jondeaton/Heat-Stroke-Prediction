@@ -173,7 +173,6 @@ class HeatStrokeMonitor(object):
         else:
             logger.warning("No parse: %s" % line)
 
-
     def save_data(self, file=None):
         # This function saves the data that has been gathered to an excel file
         max_num_measurements = max([self.HR_stream.size, self.ETemp_stream.size, 

@@ -121,23 +121,29 @@ def test(args):
     handler.predictor.init_log_reg_predictor()
 
     handler.monitor.set_threading_class(test=args.no_bean)
-    logger.info("Starting data collection...")
+    logger.info("Starting data collection thread...")
     handler.start_data_collection()
+    logger.info("Starting data saving thread...")
+    handler.saving_thread.start()
     logger.info("Starting prediction thread...")
     handler.start_prediction_thread()
 
     try:
-    	logger.warning("Pausing main thres (press any key to aboard)...")
-    	while True:
+        logger.warning("Pausing main thread (control-C to abort)...")
+        # This makes is so that the user can press any key on the keyboard
+        # but it won't exit unless they KeyboardInterrupt the process
+        while True:
             input("")
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt. Terminating threads...")
 
     handler.stop_prediction_thread()
     handler.monitor.stop_data_read()
-    logger.debug("Saving data...")
+    handler.saving_thread.stop()
+
     handler.monitor.save_data()
     handler.save_risk_series()
+    
     logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
 def main():
