@@ -1,3 +1,7 @@
+# Heat_Stroke_Prediction/src/
+
+This file contains the main soruce code for the Heat Stroke Monitor prediction algorithm.
+
 ## Class Structure
 ![class_structure](https://cloud.githubusercontent.com/assets/15920014/23107814/e646ffc2-f6b8-11e6-9431-14a49f6e2d47.png)
 
