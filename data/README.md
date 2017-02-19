@@ -1,3 +1,7 @@
+# Heat_Stroke_Prediction/data/
+
+This directory contains data that is used for supervised learning and testing of the Heat Stroke Prediction Algorithm.
+
 ## Core Temperature Estimation
 ![test](https://cloud.githubusercontent.com/assets/15920014/23107769/21c1ae22-f6b8-11e6-90f3-63c299c9cffb.png)
 
