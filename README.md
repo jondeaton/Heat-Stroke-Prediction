@@ -3,7 +3,15 @@
 This is a repository for code used in Bioengineering Capstone at Stanford. (Bioe 141A/B)
 Code in this repository is used for testing of methods for predicting heat stroke with a wearable device.
 
+## System Diagram
 ![screen shot 2017-01-31 at 6 53 22 pm](https://cloud.githubusercontent.com/assets/15920014/22493706/9a73f36a-e7e6-11e6-9809-7b0827663e36.png)
+
+
+
+## Core Temperature Estimation
+![test](https://cloud.githubusercontent.com/assets/15920014/23107769/21c1ae22-f6b8-11e6-90f3-63c299c9cffb.png)
+
+
 
 ## Dependencies
 
