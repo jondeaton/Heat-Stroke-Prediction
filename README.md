@@ -6,8 +6,12 @@ Code in this repository is used for testing of methods for predicting heat strok
 ## System Diagram
 ![screen shot 2017-01-31 at 6 53 22 pm](https://cloud.githubusercontent.com/assets/15920014/22493706/9a73f36a-e7e6-11e6-9809-7b0827663e36.png)
 
+We intend to implement a prototype that senses relevant parameters and need not necessarily be wearable, minimally intrusive, or connect wirelessly to a phone, as we aim to prove concept viability rather than produce a ready-to-use device. Our concept (Figure 2) involves sensors connected to a microprocessor that relays information to a computer, which predicts heat stroke risk using machine learning (ML) algorithms. By the en dof BIOE 141B, we aim to have developed hardware and software that allow us to accurately sense and predict heat stroke, as well as a series of experimental tests verifying that our device functions as expected.
+
+
 ## Class Structure
 ![class_structure](https://cloud.githubusercontent.com/assets/15920014/23107814/e646ffc2-f6b8-11e6-9431-14a49f6e2d47.png)
+
 Relationships between classes used in the software (implemented in Python) for Milestone 2. The MonitorUser class is a wrapper for patient demographic data. Static user data is stored in an XML file between runs, and the specific user can be specified on startup. HeatStrokeMonitor is a class that interfaces with the bluetooth Serial port through which data is transmitted from the physical monitor (sensor system), and also stores data retrieved from the data stream in time-associated tables. The PredictionHandler class (currently incomplete) periodically requests data from the HeatStrokeMonitor  class, combines this data with the demographic data from the MonitorUser class, and sends the combined data to the HeatStrokePredictor class. The HeatStrokePredictor class is designed to take user data streams and produce a risk assessment by retrieving case study data from the HeatStrokeDataFiller class.
 
 
@@ -19,6 +23,7 @@ Results from Heller Lab esophageal probe and heart rate monitor (used on Jon). C
 
 ## Supervised Learning Classification
 <img width="517" alt="svm plots" src="https://cloud.githubusercontent.com/assets/15920014/23107806/cfb91920-f6b8-11e6-88ad-134be1713286.png">
+
 The solid line in each plot shows an SVM classification of the data with margins (dotted lines). Many of the heat stroke data points are from true patient populations; however, all of the blue data is drawn from distributions of physiologically normal ranges. A) Environmental temperature vs. patient core temperature. B) Heart rate vs. patient temperature. Given that many points from both classifications lie on both sides of the line indicates that these two features alone may be insufficient in predicting heat stroke. C) Relative humidity vs. HI.
 
 
