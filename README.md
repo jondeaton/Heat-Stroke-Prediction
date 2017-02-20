@@ -1,5 +1,5 @@
-# Stanford Bioengineering Senior Capstone, Fall-Winter 2017
-### Team: Jon Deaton, Anna Jaffe, Diana Gong
+# Stanford Bioengineering Senior Capstone, Fall/Winter 2016-17
+### Team Heat Stroke: Jon Deaton, Anna Jaffe, Diana Gong
 
 This is a repository for code used in Bioengineering Capstone at Stanford (Bioe 141A/B). Code in this repository is used for testing of methods for predicting heat stroke with a wearable monitor.
 
