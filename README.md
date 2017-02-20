@@ -1,7 +1,9 @@
-# Heat_Stroke_Prediction
+# Heat_Stroke_Prediction 
 
-This is a repository for code used in Bioengineering Capstone at Stanford. (Bioe 141A/B)
-Code in this repository is used for testing of methods for predicting heat stroke with a wearable device.
+## Stanford Bioengineering Senior Capstone, Fall-Winter 2017
+### Jon Deaton, Anna Jaffe, Diana Gong
+
+This is a repository for code used in Bioengineering Capstone at Stanford (Bioe 141A/B). Code in this repository is used for testing of methods for predicting heat stroke with a wearable monitor.
 
 ## System Diagram
 ![screen shot 2017-01-31 at 6 53 22 pm](https://cloud.githubusercontent.com/assets/15920014/22493706/9a73f36a-e7e6-11e6-9809-7b0827663e36.png)
