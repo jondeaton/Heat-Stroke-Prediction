@@ -7,6 +7,7 @@ HeatStrokeMonitor, and HeatStrokePredictor object. Instances of this class insta
 objects and couriers data between them to get and report predictions of heat stroke risk.
 '''
 
+import os
 import time
 import threading
 import logging
@@ -53,7 +54,7 @@ class LoopingThread(threading.Timer):
 
 class PredictionHandler(object):
 
-    def __init__(self, username=None):
+    def __init__(self, username=None, output_dir=None):
         
         logger.debug("Instantiating user...")
         self.user = user.MonitorUser(load=True, username=username)
@@ -71,12 +72,30 @@ class PredictionHandler(object):
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
                              'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
 
+        # Allocate a risk series for a risk estimate time series
         self.risk_series = pd.Series()
 
-        self.prediciton_thread = LoopingThread(self.make_prediction, 5)
-        self.saving_thread = LoopingThread(self.monitor.save_data, 30)
+        # Set the output directory and save files
+        # Make a directory to contain the files if one doesn't already exist
+        if output_dir and not os.path.isdir(output_dir): os.mkdir(output_dir)
+        
+        # Set the output directory to be the current directory if one was not provided
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        self.output_dir = output_dir if output_dir else current_dir
 
-        self.risk_csv_file = "risk_series.csv"
+        # Set the output file paths inside of the output directory
+        self.risk_csv_file = os.path.join(self.output_dir, "risk_series.csv")
+        self.data_save_file = os.path.join(self.output_dir, "all_data.csv")
+
+    def initialize_threads(self, test=False):
+        # Make a threading object to collect the data
+        self.monitor.set_threading_class(test=test)
+
+        # Make a thread that preiodically makes a risk prediction
+        self.prediciton_thread = LoopingThread(self.make_prediction, 5)
+
+        # Make a thread that periodically saves all the data
+        self.saving_thread = LoopingThread(self.save_all_data, 30)
 
     def start_data_collection(self):
         # This function initiates a thread (handled by HeatStrokeMonitor)
@@ -94,8 +113,23 @@ class PredictionHandler(object):
     def get_current_attributes(self):
         # This function gets data from the MonitorUser instantiation and formats it in a way
         #logger.warning("get_current_attributes not implemented!")
-        user_attributes = user.get_user_attributes()
+        user_attributes = self.user.get_user_attributes()
 
+    def save_all_data(self):
+        # This saves all the recorded data including risk estimates
+        df = self.monitor.get_compiled_df()
+        num_to_append = self.risk_series.size - df.shape[0]
+        if num_to_append > 0:
+            filler = np.empty()
+            filler[:] = np.NAN
+            df.append(filler)
+
+        # Add the risk data to the data frame
+        df.loc[range(self.risk_series.size), "time Risk"] = self.risk_series.keys()
+        df.loc[range(self.risk_series.size), "Risk"] = self.risk_series.values
+
+        # Save the data frame
+        df.to_csv(self.data_save_file)
 
     def make_prediction(self):
         # This funciton makes a prediction
@@ -109,18 +143,20 @@ class PredictionHandler(object):
         logger.info(colored(emoji.emojize("Current risk: %f %s" % (risk, emojis)), 'red'))
         self.risk_series.set_value(now, risk)
 
-    def save_risk_series(self):
-        self.risk_series.to_csv(self.risk_csv_file)
-
 def test(args):
     logger.debug("Instantiating prediciton handler...")
-    handler = PredictionHandler(username=args.user)
+    handler = PredictionHandler(username=args.user, output_dir=args.output)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
+    # Tell the prediction handler whether or not to use prefiltered data or to refilter it
     handler.predictor.use_prefiltered = args.prefiltered
+    # Initialize the logistic regression predictor using the filtered data
     handler.predictor.init_log_reg_predictor()
 
-    handler.monitor.set_threading_class(test=args.no_bean)
+    # Create all of the threads that the handler needs
+    handler.initialize_threads(test=args.no_bean)
+
+    # Start all of the threads
     logger.info("Starting data collection thread...")
     handler.start_data_collection()
     logger.info("Starting data saving thread...")
@@ -141,8 +177,7 @@ def test(args):
     handler.monitor.stop_data_read()
     handler.saving_thread.stop()
 
-    handler.monitor.save_data()
-    handler.save_risk_series()
+    handler.save_all_data()
     
     logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
@@ -155,7 +190,7 @@ def main():
     input_group.add_argument('-in', '--input', required=False, help='Input spreadsheet with case data')
 
     output_group = parser.add_argument_group("Outputs")
-    output_group.add_argument("-out", "--output", help="Predictoin Output")
+    output_group.add_argument("-out", "--output", help="Output directory")
 
     options_group = parser.add_argument_group("Opitons")
     options_group.add_argument("-f", "--fake", action="store_true", help="Use fake data")
@@ -188,7 +223,6 @@ def main():
         test(args)
     else:
         logger.warning("Integrated prediction not yet implemented. Use the --test flag.")
-
 
 if __name__ == "__main__":
     main()

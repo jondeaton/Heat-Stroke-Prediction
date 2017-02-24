@@ -173,13 +173,12 @@ class HeatStrokeMonitor(object):
         else:
             logger.warning("No parse: %s" % line)
 
-    def save_data(self, file=None):
-        # This function saves the data that has been gathered to an excel file
+    def get_compiled_df(self):
+        # This function puts data that has been gathered to a pandas DataFrame
         max_num_measurements = max([self.HR_stream.size, self.ETemp_stream.size, 
                                     self.EHumid_stream.size, self.STemp_stream.size,
                                     self.GSR_stream.size, self.Acc_stream.size, 
                                     self.Skin_stream.size])
-
 
         df = pd.DataFrame(columns = self.fields, index=range(max_num_measurements))
 
@@ -204,6 +203,10 @@ class HeatStrokeMonitor(object):
         df.loc[range(self.Skin_stream.size), "time SR"] = self.Skin_stream.keys()
         df.loc[range(self.Skin_stream.size), "SR"] = self.Skin_stream.values
 
+        return df
+
+    def save_data(self, file=None):
+        df = self.get_compiled_df()
         save_file = file if file is not None else self.data_save_file
         logger.debug("Saving data to: %s" % save_file)
         df.to_csv(save_file)
