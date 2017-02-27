@@ -35,29 +35,36 @@ __email__ = "jdeaton@stanford.edu"
 
 class LoopingThread(threading.Timer):
     # This is a thread that performs some action
-    # repeatedly at a given interval
+    # repeatedly at a given interval. Since this
+    # interval may be long, this 
 
     def __init__(self, callback, wait_time):
         threading.Thread.__init__(self)
         self.callback = callback
         self.wait_time = wait_time
+
+        self.loop_wait = 1 if wait_time > 1 else wait_time
+        self.num_loops = int(wait_time / self.loop_wait)
+
         self._is_running = True
 
     def run(self):
         while self._is_running:
+            for _ in range(self.num_loops):
+                # Check to make sure the thread should still be running
+                if not self._is_running: return
+                time.sleep(self.loop_wait)
             self.callback()
-            time.sleep(self.wait_time)
 
     def stop(self):
         self._is_running = False
 
-
 class PredictionHandler(object):
 
-    def __init__(self, username=None, output_dir=None):
+    def __init__(self, users_XML="users.xml", username=None, output_dir=None):
         
         logger.debug("Instantiating user...")
-        self.user = user.MonitorUser(load=True, username=username)
+        self.user = user.MonitorUser(users_XML=users_XML, load=True, username=username)
         logger.info(emoji.emojize("Monitor user: %s %s" % (self.user.name, self.user.emoji)))
 
         logger.debug("Instantiating monitor...")
@@ -70,17 +77,21 @@ class PredictionHandler(object):
         
         self.current_fields = self.user.series.keys()
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
-                             'Nationality', 'Cardiovascular disease history', 'Sickle Cell Trait (SCT)'] 
+                             'Nationality', 'Cardiovascular disease history',
+                             'Sickle Cell Trait (SCT)'] 
 
         # Allocate a risk series for a risk estimate time series
         self.risk_series = pd.Series()
+        self.CT_risk_series = pd.Series()
+        self.HI_risk_series = pd.Series()
+        self.LR_risk_series = pd.Series()
 
         # Set the output directory and save files
         # Make a directory to contain the files if one doesn't already exist
         if output_dir and not os.path.isdir(output_dir): os.mkdir(output_dir)
         
-        # Set the output directory to be the current directory if one was not provided
-        current_dir = os.path.dirname(os.path.realpath(__file__))
+        # Set the output directory to be the data directory if one was not provided
+        current_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         self.output_dir = output_dir if output_dir else current_dir
 
         # Set the output file paths inside of the output directory
@@ -115,11 +126,31 @@ class PredictionHandler(object):
         #logger.warning("get_current_attributes not implemented!")
         user_attributes = self.user.get_user_attributes()
 
+        user_attributes.set_value('Heart Rate', self.monitor.HR_stream[-1])
+        user_attributes.set_value('Environmental temperature (C)', self.monitor.ETemp_stream[-1])
+        user_attributes.set_value('Relative Humidity', self.monitor.EHumid_stream[-1])
+        user_attributes.set_value('Skin Temperature', self.monitor.STemp_stream_stream[-1])
+        user_attributes.set_value('Sweatting', self.monitor.GSR_stream[-1])
+        user_attributes.set_value('Acceleration', self.monitor.Acc_stream[-1])
+        user_attributes.set_value('Catatonic', self.monitor.Skin_stream[-1])
+        
+        return user_attributes
+
     def save_all_data(self):
         # This saves all the recorded data including risk estimates
+        logger.debug("Saving all data to: %s ..." % os.path.basename(self.data_save_file))
+
         df = self.monitor.get_compiled_df()
-        num_to_append = self.risk_series.size - df.shape[0]
+
+        # The dataframe returned by the monitor not be large enough to hold all of the 
+        # risk series data so we need to make it bigger if necessary
+        longest_risk_series = max(self.risk_series.size, self.CT_risk_series.size,
+                                    self.HI_risk_series.size, self.LR_risk_series.size)
+
+        num_to_append = longest_risk_series - df.shape[0]
         if num_to_append > 0:
+            # Add a bunch of empty (NAN) values to the dataframe is we need extra space
+            # for the risk vlaues
             filler = np.empty()
             filler[:] = np.NAN
             df.append(filler)
@@ -128,24 +159,48 @@ class PredictionHandler(object):
         df.loc[range(self.risk_series.size), "time Risk"] = self.risk_series.keys()
         df.loc[range(self.risk_series.size), "Risk"] = self.risk_series.values
 
-        # Save the data frame
+        # Save the data frame to file
         df.to_csv(self.data_save_file)
 
     def make_prediction(self):
         # This funciton makes a prediction
         user_attributes = self.get_current_attributes()
-        try:
-            risk = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream)
-        except:
-            risk = np.random.random()
+
+        # Calculate the risk!!!
+        CT_prob, HI_prob, LR_prob, risk = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, each=True)
+
+        # Record the time that the risk assessment was made, and save it to the series
         now = time.time()
-        emojis = ":fire: " * int(risk / 0.1) + ":snowflake: " * int((1 - risk) / 0.1)
-        logger.info(colored(emoji.emojize("Current risk: %f %s" % (risk, emojis)), 'red'))
         self.risk_series.set_value(now, risk)
+        self.CT_risk_series.set_value(now, CT_prob)
+        self.HI_risk_series.set_value(now, HI_prob)
+        self.LR_risk_series.set_value(now, LR_prob)
+
+        # Log the risk to terminal
+        logger.info(colored("CT Risk: %.4f %s", CT_prob, progress_bar(CT_prob), "orange"))
+        logger.info(colored("HI Risk: %.4f %s", HI_prob, progress_bar(HI_prob), "orange"))
+        logger.info(colored("LR Risk: %.4f %s", LR_prob, progress_bar(LR_prob), "orange"))
+        bar = progress_bar(risk, filler=":fire: ")
+        logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
+        
+    def stop_all_threads(self, wait=False):
+        # This function sends a stop signal to all threads
+        # The optional wait parameter indicates whether this function should wait to return until it is sure
+        # that all of the treats have stopped running
+        self.stop_prediction_thread()
+        self.monitor.stop_data_read()
+        self.saving_thread.stop()
+
+        if wait: logger.debug("Waiting for threads to die...")
+        while threading.activeCount() > 1: time.sleep(0.1)
+        logger.debug("Threads died. Thread count: %d" % threading.activeCount())
+
+def progress_bar(progress, filler="="):
+    return "[" + filler * int(progress / 0.1) + " " * (1 + int((1 - progress) / 0.1)) + "]"
 
 def test(args):
     logger.debug("Instantiating prediciton handler...")
-    handler = PredictionHandler(username=args.user, output_dir=args.output)
+    handler = PredictionHandler(users_XML= args.users_XML, username=args.user, output_dir=args.output)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
     # Tell the prediction handler whether or not to use prefiltered data or to refilter it
@@ -173,12 +228,11 @@ def test(args):
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt. Terminating threads...")
 
-    handler.stop_prediction_thread()
-    handler.monitor.stop_data_read()
-    handler.saving_thread.stop()
-
+    # Save the data
     handler.save_all_data()
-    
+    # Stop the threads
+    handler.stop_all_threads(wait=True)
+    # Indicate that the test has finished
     logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
 
 def main():
@@ -198,6 +252,7 @@ def main():
     options_group.add_argument('-all', "--all-fields", dest="all_fields", action="store_true", help="Use all fields")
     options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing")
     options_group.add_argument('-u', '--user', default=None, help="Monitor user name")
+    options_group.add_argument("--users", dest="users_XML", default=None, help="Monitor users XML file")
     options_group.add_argument('-nb', '--no-bean', dest="no_bean", action="store_true", help="Don't read from serial port")
 
     console_options_group = parser.add_argument_group("Console Options")

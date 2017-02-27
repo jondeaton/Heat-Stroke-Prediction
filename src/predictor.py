@@ -77,7 +77,10 @@ class HeatStrokePredictor(object):
         self.fit_log_reg_predictor = self.log_reg_predictor.fit(X, y)
 
     def make_log_reg_prediction(self, user_attributes):
-        probas = self.fit_log_reg_predictor.predict_proba(user_attributes)
+        # This function returns a Logistic-Regression calculated probability
+        # user_state needs to be
+        X = [user_attributes[field] for field in self.fields_used]
+        probas = self.fit_log_reg_predictor.predict_proba(X)
         return probabs[0]
 
     # Heat Index Predictor
@@ -160,12 +163,12 @@ class HeatStrokePredictor(object):
         return risk
 
     # Makes all predicitons and combines them
-    def make_prediction(self, user_attributes, heart_rate_stream):
+    def make_prediction(self, user_attributes, heart_rate_stream, each=False):
         
-        # Logistic regression
+        # Logistic regression risk
         LR_prob = self.make_log_reg_prediction(user_attributes)
         
-        # Heat
+        # Heat Index Risk
         temp = user_attributes['Environmental temperature (C)']
         humidity = user_attributes['Relative Humidity']
         sun = user_attributes['Exposure to sun']
@@ -177,7 +180,7 @@ class HeatStrokePredictor(object):
         # Combined probability
         combined_prob = (CT_prob + HI_prob + LR_prob) / 3
 
-        return combined_prob
+        return combined_prob if not each else (CT_prob, HI_prob, LR_prob, combined_prob)
 
 
 def main():

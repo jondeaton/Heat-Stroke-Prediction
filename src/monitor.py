@@ -70,12 +70,23 @@ class TestSerialReadThread(threading.Timer):
         self.verbose = verbose
         self.bytes_read = 0
         self._is_running = True
+        self.time_started = time.time()
+
+        # These are some fake values to use for testing
+        self.test_funcs = {
+        'HR': lambda t: 100 + (180-100)*(t - self.time_started) / (0.75 * 60 * 60),
+        'ET': lambda t: 36 + 5 * np.random.random(),
+        'EH': lambda t: 0.8 + 0.1 * np.random.random(),
+        'ST': lambda t: 100 + (180-100)*(t - self.time_started) / (1.2 * 60 * 60),
+        'GSR': lambda t: 400,
+        'Acc': lambda t: 0.5,
+        'SR': lambda t: 0.5}
 
     def run(self):
         while self._is_running:
             fields = ['HR', 'ET', 'EH', 'ST', 'GSR', 'Acc', 'SR']
             field = random.choice(fields)
-            value = 50 + 50 * np.random.random()
+            value = self.test_funcs[field](time.time())
             line = "{field}: {value}".format(field=field, value=value)
             logger.info("Read line: \"%s\"" % line)
             self.callback(line)
@@ -206,6 +217,7 @@ class HeatStrokeMonitor(object):
         return df
 
     def save_data(self, file=None):
+        # Saves the data collected here to a CSV file
         df = self.get_compiled_df()
         save_file = file if file is not None else self.data_save_file
         logger.debug("Saving data to: %s" % save_file)

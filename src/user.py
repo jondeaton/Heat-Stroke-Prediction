@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
+import os
 import xml
 import pandas as pd
 import xml.etree.ElementTree as ET
 
 class MonitorUser(object):
 
-	def __init__(self, load=False, username=None):
-		self.users_file = 'users.xml'
+	def __init__(self, users_XML=None, load=False, username=None):
+		self.users_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", 'users.xml') if users_XML is None else users_XML
 		
 		self.series = pd.Series()
 		self.name = None
@@ -23,10 +24,9 @@ class MonitorUser(object):
 
 		if load:
 			self.load_from_file(username)
-	
 
 	def get_user_attributes(self):
-		# This function makes
+		# This function makes a pandas Series containing all of the user attributes
 		user_attributes = pd.Series()
 		user_attributes.set_value('Age', self.age)
 		user_attributes.set_value('Sex', self.sex)
