@@ -1,0 +1,5 @@
+,Accuracy,F-Score,AUC,Sensitivity,Recall,Precision,Hamming Loss,MCC,Classifier
+0,0.9721238971412847,0.925925925925926,0.9517155963302752,0.0,0.9174311926605505,0.9345794392523364,0.026272577996715927,0.9100171667975122,"SVC(C=1, cache_size=200, class_weight=None, coef0=0.0,
+  decision_function_shape=None, degree=3, gamma='auto', kernel='linear',
+  max_iter=-1, probability=True, random_state=None, shrinking=True,
+  tol=0.001, verbose=False)"
