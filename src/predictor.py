@@ -21,7 +21,6 @@ import read_data
 import numpy as np
 from sklearn import linear_model
 
-logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 

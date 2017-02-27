@@ -21,22 +21,7 @@ import copy
 import coloredlogs
 
 coloredlogs.install(level='INFO')
-logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
-#logger.setLevel(logging.INFO)
-logger.setLevel(logging.NOTSET)
-
-'''
-For potential future use
-
-handler = logging.StreamHandler()
-handler.addFilter(coloredlogs.HostNameFilter())
-handler.setFormatter(logging.Formatter('[%(hostname)s] %(message)s'))
-logger = logging.getLogger()
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-logger.info("Does it work?")
-'''
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
@@ -422,15 +407,12 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
         coloredlogs.install(level='DEBUG')
     elif args.verbose:
         warnings.filterwarnings('ignore')
-        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
         coloredlogs.install(level='INFO')
     else:
         warnings.filterwarnings('ignore')
-        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
         coloredlogs.install(level='WARNING')
 
 

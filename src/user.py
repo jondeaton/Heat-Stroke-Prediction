@@ -38,7 +38,6 @@ class MonitorUser(object):
 		user_attributes.set_value('Sickle Cell Trait (SCT)', self.sickle_cell)
 		return user_attributes
 		
-
 	def update_series(self):
 		self.series['Name'] = self.name
 		self.series['Sex'] = self.sex
@@ -76,5 +75,3 @@ class MonitorUser(object):
 		self.nationality = 0 if user_attributes['nationality'] == "White" else 1
 		self.cardiovascular_disease_history = int(user_attributes['cardiovascular_disease_history'])
 		self.sickle_cell = int(user_attributes['sickle_cell'])
-
-

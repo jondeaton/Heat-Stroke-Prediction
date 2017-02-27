@@ -24,9 +24,7 @@ import user
 import monitor
 import predictor
 
-
 coloredlogs.install(level='DEBUG')
-logging.basicConfig(format='[%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 
 __author__ = "Jon Deaton"
@@ -262,19 +260,16 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
         coloredlogs.install(level='DEBUG')
     elif args.verbose:
         warnings.filterwarnings('ignore')
-        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
         coloredlogs.install(level='INFO')
     else:
         warnings.filterwarnings('ignore')
-        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
         coloredlogs.install(level='WARNING')
 
     if args.test:
-        logger.info(emoji.emojize('Initializing test... :fire: :fire: :fire:'))
+        logger.info(emoji.emojize('Initializing test...' + ' :fire:' * 3))
         test(args)
     else:
         logger.warning("Integrated prediction not yet implemented. Use the --test flag.")
