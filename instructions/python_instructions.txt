@@ -1,0 +1,32 @@
+Our code uses Python 3.5 not Python 2.7. We are also using Anaconda packages. This file will give instructions on how to download/use Python 3.5 with Anaconda.
+
+Download Anaconda here: https://www.continuum.io/downloads
+Make sure to click the Python 3.5 version.
+Follow the the instruction on that page for installation.
+
+
+Following these instructions should put a directory in your home folder ("~/anaconda3" or "/Users/YOURNAME/anaconda3")
+Note: One the command line the tilde symbol (~) refers to your home directory, which in macs looks like: /Users/YOURNAME"
+
+The python interpreter file is located at ~/anaconda3/bin/python
+
+NOTE: The python interpreter is the file that gets executed by the computer when you want to run a python script. Python is an interpreted language meaning that the script themselves dont get run, you have to run them using another program (referred to as the Python Interpreter). The usual pyhon interpreter is located in /usr/bin/python but you can find out where your python interpreter is by saying "which python" on the command line.)
+
+In order to change your default python interpreter to be the Python3.5 interpreter follow these directions
+
+1. Open the ~/.bash_profile file and edit it. To do this type:
+    
+    nano ~/.bash_profile
+    
+    in the terminal. This will open an editor (note 
+
+2. Type the following into the .bash_profile file.
+
+    export PATH=$HOME"/anaconda3/bin:$PATH"
+
+3. Save by pressing control+o then exit by pressing control+x. 
+
+4. Quit your terminal or type "source ~/.bash_profile" into your terminal
+
+5. Now when you type "which python" you should get
+    /User/YOURNAME/anaconda3/bin/python
