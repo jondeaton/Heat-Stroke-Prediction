@@ -47,8 +47,7 @@ class SerialReadThread(threading.Timer):
             try:
                 line = self.ser.readline()
                 self.bytes_read += len(line)
-                if verbose:
-                    logger.info("Read line: %s" % line)
+                logger.info("Read line: %s" % line)
                 self.callback(line)
             except:
                 if line is not None:
