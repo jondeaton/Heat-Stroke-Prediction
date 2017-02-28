@@ -198,6 +198,16 @@ class HeatStrokePredictor(object):
         user_attributes.set_value('Patient temperature', estimate_CT)
         if verbose: logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
 
+        # Yeah these are fucked
+        if np.isnan(user_attributes.Acceleration):
+            user_attributes.set_value('Acceleration', 0)
+
+        if np.isnan(user_attributes['Skin Temperature']):
+            user_attributes.set_value('Skin Temperature', estimate_CT)
+
+        if np.isnan(user_attributes['Skin color (flushed/normal=1, pale=0.5, cyatonic=0)']):
+            user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 1)
+
         return user_attributes
 
     def make_predictions(self, user_attributes, heart_rate_stream, skin_temperature_series):
@@ -239,7 +249,7 @@ class HeatStrokePredictor(object):
         CT_prob = CT_prob if CT_prob is not None else 0
         HI_prob = HI_prob if HI_prob is not None else 0
         LR_prob = LR_prob if LR_prob is not None else 0
-        
+
         combined_prob = (CT_prob + HI_prob + LR_prob) / 3
         return combined_prob 
 
