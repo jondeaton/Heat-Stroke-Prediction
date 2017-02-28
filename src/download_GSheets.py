@@ -8,6 +8,7 @@ This script is for downloading a Google Sheets document
 import os
 import csv
 import gspread
+import logging
 from oauth2client.service_account import ServiceAccountCredentials
 
 def download_gsheets(key_file, docid, output, name=None):
@@ -44,7 +45,6 @@ def get_docid(link):
     return link[start:end]
 
 def main():
-    import logging
     import argparse
 
     logging.basicConfig(format='[%(funcName)s] - %(message)s')
