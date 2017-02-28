@@ -119,7 +119,27 @@ class PredictionHandler(object):
         # For starting the predicont thread
         self.prediciton_thread.stop()
 
+    def stop_all_threads(self, wait=False):
+        # This function sends a stop signal to all threads
+        self.stop_prediction_thread()
+        self.monitor.stop_data_read()
+        self.saving_thread.stop()
 
+        # The optional 'wait' argument indicates whether this function should wait to return until it is sure
+        # that all of the treads have stopped running
+        if wait:
+            logger.debug("Waiting for threads to die...")
+            while True:
+                try:
+                    # Waiting for all the threads to stop
+                    while threading.activeCount() > 1: time.sleep(0.1)
+                    break
+                except KeyboardInterrupt:
+                    # This part just makes so that if the user mashes the KeyboardInterrupt
+                    # the program will still exit gradefully without spitting out lots of errors
+                    continue
+
+            logger.debug("Threads died. Thread count: %d" % threading.activeCount())
 
     def get_current_attributes(self):
         # This function gets data from the MonitorUser instantiation and formats it in a way
@@ -174,29 +194,7 @@ class PredictionHandler(object):
             logger.info(colored("LR Risk: %.4s\t%s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
             bar = progress_bar(risk, filler=":fire: ")
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
-        
-    def stop_all_threads(self, wait=False):
-        # This function sends a stop signal to all threads
-        self.stop_prediction_thread()
-        self.monitor.stop_data_read()
-        self.saving_thread.stop()
-
-        # The optional 'wait' argument indicates whether this function should wait to return until it is sure
-        # that all of the treads have stopped running
-        if wait:
-            logger.debug("Waiting for threads to die...")
-            while True:
-                try:
-                    # Waiting for all the threads to stop
-                    while threading.activeCount() > 1: time.sleep(0.1)
-                    break
-                except KeyboardInterrupt:
-                    # This part just makes so that if the user mashes the KeyboardInterrupt
-                    # the program will still exit gradefully without spitting out lots of errors
-                    continue
-
-            logger.debug("Threads died. Thread count: %d" % threading.activeCount())
-
+   
     def refresh_plots(self):
         pass
 
