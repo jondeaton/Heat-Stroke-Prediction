@@ -188,6 +188,7 @@ class HeatStrokeMonitor(object):
         elif line.startswith("ET:"): # Environmental Temperature
             self.ETemp_stream.set_value(now, parsed_line)
         elif line.startswith("EH:"): # Environmental Humidity
+            # Make sure that humidity is in ratio format not percentile format...
             parsed_line = parsed_line / 100.0 if parsed_line > 1 else parsed_line
             self.EHumid_stream.set_value(now, parsed_line)
         elif line.startswith("ST:"): # Skin Temperature

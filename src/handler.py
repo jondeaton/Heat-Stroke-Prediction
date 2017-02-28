@@ -189,9 +189,9 @@ class PredictionHandler(object):
 
         # Log the risk to terminal if verbose
         if verbose:
-            logger.info(colored("CT Risk: %.4s\t%s" % (CT_prob, progress_bar(CT_prob)), "yellow"))
-            logger.info(colored("HI Risk: %.4s\t%s" % (HI_prob, progress_bar(HI_prob)), "yellow"))
-            logger.info(colored("LR Risk: %.4s\t%s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
+            logger.info(colored("CT Risk: %s\t%s" % (CT_prob, progress_bar(CT_prob)), "yellow"))
+            logger.info(colored("HI Risk: %s\t%s" % (HI_prob, progress_bar(HI_prob)), "yellow"))
+            logger.info(colored("LR Risk: %s\t%s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
             bar = progress_bar(risk, filler=":fire: ")
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
    
@@ -258,6 +258,7 @@ def progress_bar(progress, filler="=", length=10):
     # This function makes a string that looks like a progress bar
     # Example: progress of 0.62 would give the following string: "[======    ]"
     progress = 0 if progress is None else progress
+    progress = 0 if progress < 0 else 1 if progress > 1 else progress
     return "[" + filler * int(0.5 + progress * length) + " " * (int(0.5 + (1 - progress) * length)) + "]"
 
 def simulation(args):
