@@ -140,7 +140,11 @@ class PredictionHandler(object):
         # Loop through all the streams and add the most recent value to user_attributes
         for field in stream_dict:
             stream = stream_dict[field]
-            user_attributes.set_value(field, stream.iloc[-1])
+            try:
+                user_attributes.set_value(field, stream.iloc[-1])
+            except:
+                logger.error("No data for: %s" % field)
+                raise
 
         user_attributes.set_value('Exposure to sun', 0)
 
