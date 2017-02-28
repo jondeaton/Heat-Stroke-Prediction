@@ -48,7 +48,7 @@ class SerialReadThread(threading.Timer):
             try:
                 line = self.ser.readline()
                 self.bytes_read += len(line)
-                if verbose:
+                if self.verbose:
                     logger.info("Read line: %s" % line)
                 self.callback(line)
             except:
