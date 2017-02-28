@@ -227,7 +227,7 @@ class HeatStrokeMonitor(object):
         # This function decides whether the testing thread class or the real serial port
         # thread class will be used 
         self.threading_class = SerialReadThread if not test else TestSerialReadThread
-
+        logger.debug("Set threading class to: %s" % self.threading_class)
 
 def parse(line):
     # This function parses a string read from serial of the form
