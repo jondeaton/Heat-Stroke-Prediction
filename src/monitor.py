@@ -51,7 +51,8 @@ class SerialReadThread(threading.Timer):
                     logger.info("Read line: %s" % line)
                 self.callback(line)
             except:
-                pass
+                if line is not None:
+                    logger.error("bad line: %s" % line)
 
             time.sleep(0.01)
 
