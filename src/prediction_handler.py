@@ -123,15 +123,73 @@ class PredictionHandler(object):
         #logger.warning("get_current_attributes not implemented!")
         user_attributes = self.user.get_user_attributes()
 
-        user_attributes.set_value('Heart / Pulse rate (b/min)', self.monitor.HR_stream.iloc[-1])
-        user_attributes.set_value('Environmental temperature (C)', self.monitor.ETemp_stream.iloc[-1])
-        user_attributes.set_value('Relative Humidity', self.monitor.EHumid_stream.iloc[-1])
-        user_attributes.set_value('Skin Temperature', self.monitor.STemp_stream.iloc[-1])
-        user_attributes.set_value('Sweating', self.monitor.GSR_stream.iloc[-1])
-        user_attributes.set_value('Acceleration', self.monitor.Acc_stream.iloc[-1])
-        user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', self.monitor.Skin_stream.iloc[-1])
-        
+        # We need to loop through all of the differen data streams coming from the monitor
+        # and store the most recent value in ihe user's attributes
+        # This dictionary provides a mapping from user attribute field name to
+        # the relevant field
+        stream_dict = {
+        'Heart / Pulse rate (b/min)': self.monitor.HR_stream, 
+        'Environmental temperature (C)': self.monitor.ETemp_stream,
+        'Relative Humidity': self.monitor.EHumid_stream,
+        'Skin Temperature': self.monitor.STemp_stream,
+        'Sweating': self.monitor.GSR_stream,
+        'Acceleration': self.monitor.Acc_stream,
+        'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': self.monitor.Skin_stream
+        }
+
+        # Loop through all the streams and add the most recent value to user_attributes
+        for field in stream_dict:
+            stream = stream_dict[field]
+            user_attributes.set_value(field, stream.iloc[-1])
+
+        user_attributes.set_value('Exposure to sun', 0)
+
         return user_attributes
+
+    def make_prediction(self):
+        # This funciton makes a prediction
+        try:
+            user_attributes = self.get_current_attributes()
+        except:
+            logger.error("Not enough data to make a predictoin.")
+            return
+
+        # Calculate the risk!!!
+        tup = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream, each=True)
+        CT_prob, HI_prob, LR_prob, risk = tup
+
+        # Record the time that the risk assessment was made, and save it to the series
+        now = time.time()
+        self.risk_series.set_value(now, risk)
+        self.CT_risk_series.set_value(now, CT_prob)
+        self.HI_risk_series.set_value(now, HI_prob)
+        self.LR_risk_series.set_value(now, LR_prob)
+
+        # Log the risk to terminal
+        logger.info(colored("CT Risk: %.4f %s" % (CT_prob, progress_bar(CT_prob)), "yellow"))
+        logger.info(colored("HI Risk: %.4f %s" % (HI_prob, progress_bar(HI_prob)), "yellow"))
+        logger.info(colored("LR Risk: %.4f %s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
+        bar = progress_bar(risk, filler=":fire: ")
+        logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
+        
+    def stop_all_threads(self, wait=False):
+        # This function sends a stop signal to all threads
+        # The optional wait parameter indicates whether this function should wait to return until it is sure
+        # that all of the treats have stopped running
+        self.stop_prediction_thread()
+        self.monitor.stop_data_read()
+        self.saving_thread.stop()
+
+        if wait:
+            logger.debug("Waiting for threads to die...")
+            while True:
+                try:
+                    while threading.activeCount() > 1: time.sleep(0.1)
+                    break
+                except KeyboardInterrupt:
+                    continue
+
+            logger.debug("Threads died. Thread count: %d" % threading.activeCount())
 
     def save_all_data(self):
         # This saves all the recorded data including risk estimates
@@ -172,42 +230,10 @@ class PredictionHandler(object):
         # Save the data frame to file! yaas!
         df.to_csv(self.data_save_file)
 
-    def make_prediction(self):
-        # This funciton makes a prediction
-        user_attributes = self.get_current_attributes()
-
-        # Calculate the risk!!!
-        tup = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream, each=True)
-        CT_prob, HI_prob, LR_prob, risk = tup
-
-        # Record the time that the risk assessment was made, and save it to the series
-        now = time.time()
-        self.risk_series.set_value(now, risk)
-        self.CT_risk_series.set_value(now, CT_prob)
-        self.HI_risk_series.set_value(now, HI_prob)
-        self.LR_risk_series.set_value(now, LR_prob)
-
-        # Log the risk to terminal
-        logger.info(colored("CT Risk: %.4f %s", CT_prob, progress_bar(CT_prob), "orange"))
-        logger.info(colored("HI Risk: %.4f %s", HI_prob, progress_bar(HI_prob), "orange"))
-        logger.info(colored("LR Risk: %.4f %s", LR_prob, progress_bar(LR_prob), "orange"))
-        bar = progress_bar(risk, filler=":fire: ")
-        logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
-        
-    def stop_all_threads(self, wait=False):
-        # This function sends a stop signal to all threads
-        # The optional wait parameter indicates whether this function should wait to return until it is sure
-        # that all of the treats have stopped running
-        self.stop_prediction_thread()
-        self.monitor.stop_data_read()
-        self.saving_thread.stop()
-
-        if wait: logger.debug("Waiting for threads to die...")
-        while threading.activeCount() > 1: time.sleep(0.1)
-        logger.debug("Threads died. Thread count: %d" % threading.activeCount())
-
 def progress_bar(progress, filler="="):
-    return "[" + filler * int(progress / 0.1) + " " * (1 + int((1 - progress) / 0.1)) + "]"
+    # This function makes a string that looks like a progress bar
+    # Example: progress of 0.62 would give the following string: "[======    ]""
+    return "[" + filler * int(0.5 + progress / 0.1) + " " * (1 + int(0.5 + (1 - progress) / 0.1)) + "]"
 
 def test(args):
     logger.debug("Instantiating prediciton handler...")
@@ -231,11 +257,14 @@ def test(args):
     handler.start_prediction_thread()
 
     try:
-        logger.warning("Pausing main thread (control-C to abort)...")
+        logger.warning("Pausing main thread ('q' or control-C to abort)...")
         # This makes is so that the user can press any key on the keyboard
         # but it won't exit unless they KeyboardInterrupt the process
         while True:
-            input("")
+            user_input = input("")
+            if user_input == 'q':
+                logger.warning("Exit signal recieved. Terminating threads...")
+            break
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt. Terminating threads...")
 

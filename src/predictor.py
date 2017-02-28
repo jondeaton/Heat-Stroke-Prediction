@@ -82,29 +82,33 @@ class HeatStrokePredictor(object):
     def make_log_reg_prediction(self, user_attributes):
         # This function returns a Logistic-Regression calculated probability
         # user_state needs to be
-        logger.debug("Making Logistic Regression prediction with:")
-        print(user_attributes)
-        X = [user_attributes[field] for field in self.fields_used]
+        # logger.debug("Making Logistic Regression prediction with:")
+        # print(user_attributes)
+        X = [[user_attributes[field] for field in self.fields_used]]
         probas = self.fit_log_reg_predictor.predict_proba(X)
-        return probabs[0]
+        logger.info("LR probas: %s" % probas)
+        return probas[0][0]
 
-    # Heat Index Predictor
-    def make_heat_index_prediction(self, humidity, temperature, sun=0):
+    def calculate_heat_index(self, humidity, temperature, sun=0):
+        # Heat Index Calculation
         temp = meteocalc.Temp(temperature, 'c')
         heat_index = meteocalc.heat_index(temperature=temp, humidity=humidity)
         # Wikipedia: Exposure to full sunshine can increase heat index values by up to 8 °C (14 °F)[7]
         # Heat Index on the website of the Pueblo, CO United States National Weather Service.
         # Link: http://web.archive.org/web/20110629041320/http://www.crh.noaa.gov/pub/heat.php
         heat_index += meteocalc.Temp(8, 'c') * sun
-        # TODO: this is a fake implementation that needs to be implemented for real
-        if heat_index.f < 80:
-            risk = 0
-        elif heat_index.f < 105:
-            risk = 0.333
-        elif heat_index.f < 130:
-            risk = 0.666
-        else:
-            risk = 1
+        return heat_index
+
+    def make_HI_risk_prediction(self, humidity, temperature, sun=0):
+        # Heat Index Risk Predictor
+        heat_index = self.calculate_heat_index(humidity, temperature, sun=sun)
+
+        hi = heat_index.f # Heat index in Farenheight
+        low_sat = 80 # Lower temperature saturation in Farenheight
+        up_sat = 130 # Upper temperature saturatio in Farenheight
+
+        risk = 0 if hi < low_sat else (hi - low_sat) / (up_sat - low_sat) if hi < up_sat else 1 
+
         return risk
 
     def estimate_core_temperature(self, heart_rate_series, CTstart):
@@ -166,31 +170,39 @@ class HeatStrokePredictor(object):
 
         return risk
 
+    def fill_current_attributes(self, user_attributes):
+        temperature = user_attributes['Environmental temperature (C)']
+        humidity = user_attributes['Relative Humidity']
+        sun = user_attributes['Exposure to sun']
+        temperature = meteocalc.Temp(temperature, 'c')
+        heat_index = self.calculate_heat_index(humidity, temperature, sun=sun)
+        user_attributes.set_value("Heat Index (HI)", heat_index.c)
+
+        most_recent_CT_time = max(self.core_temp_series.keys())
+        estimate_CT = self.core_temp_series[most_recent_CT_time]
+        user_attributes.set_value('Patient temperature', estimate_CT)
+        logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
+
+        return user_attributes
+
     def make_prediction(self, user_attributes, heart_rate_stream, skin_temperature_series, each=False):
         # This function makes all Heat Stroke Risk
 
-        # Core Temp Estimation
+        # Core Temp Risk Estimation
         # This function will also update self.core_temp_series, which can be used to 
-        # fill the current user_attributes Series with current Core temperature
+        # fill the current user_attributes Series with current core temperature
         CT_prob = self.core_temperature_risk(heart_rate_stream, skin_temperature_series)
-
-        most_recent_CT_time = max(self.core_temp_series.keys())
-
-        estimate_CT = self.core_temp_series[most_recent_CT_time]
-        logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
-        user_attributes.set_value('Patient temperature', estimate_CT)
-
-        # Logistic regression risk
-        LR_prob = self.make_log_reg_prediction(user_attributes)
         
-        # Heat Index Risk
+        # Heat Index Risk Estimation
         temp = user_attributes['Environmental temperature (C)']
         humidity = user_attributes['Relative Humidity']
         sun = user_attributes['Exposure to sun']
-        HI_prob = self.make_heat_index_prediction(humidity, temp, sun=sun)
-        
-        
+        HI_prob = self.make_HI_risk_prediction(humidity, temp, sun=sun)
 
+        # Logistic regression risk
+        user_attributes = self.fill_current_attributes(user_attributes)
+        LR_prob = self.make_log_reg_prediction(user_attributes)
+        
         # Combined probability
         combined_prob = (CT_prob + HI_prob + LR_prob) / 3
 
