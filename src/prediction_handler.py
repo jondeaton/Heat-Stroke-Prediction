@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
 
-
 class LoopingThread(threading.Timer):
     # This is a thread that performs some action
     # repeatedly at a given interval. Since this
@@ -124,13 +123,13 @@ class PredictionHandler(object):
         #logger.warning("get_current_attributes not implemented!")
         user_attributes = self.user.get_user_attributes()
 
-        user_attributes.set_value('Heart Rate', self.monitor.HR_stream[-1])
-        user_attributes.set_value('Environmental temperature (C)', self.monitor.ETemp_stream[-1])
-        user_attributes.set_value('Relative Humidity', self.monitor.EHumid_stream[-1])
-        user_attributes.set_value('Skin Temperature', self.monitor.STemp_stream_stream[-1])
-        user_attributes.set_value('Sweatting', self.monitor.GSR_stream[-1])
-        user_attributes.set_value('Acceleration', self.monitor.Acc_stream[-1])
-        user_attributes.set_value('Catatonic', self.monitor.Skin_stream[-1])
+        user_attributes.set_value('Heart / Pulse rate (b/min)', self.monitor.HR_stream.iloc[-1])
+        user_attributes.set_value('Environmental temperature (C)', self.monitor.ETemp_stream.iloc[-1])
+        user_attributes.set_value('Relative Humidity', self.monitor.EHumid_stream.iloc[-1])
+        user_attributes.set_value('Skin Temperature', self.monitor.STemp_stream.iloc[-1])
+        user_attributes.set_value('Sweating', self.monitor.GSR_stream.iloc[-1])
+        user_attributes.set_value('Acceleration', self.monitor.Acc_stream.iloc[-1])
+        user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', self.monitor.Skin_stream.iloc[-1])
         
         return user_attributes
 
@@ -139,11 +138,12 @@ class PredictionHandler(object):
         logger.debug("Saving all data to: %s ..." % os.path.basename(self.data_save_file))
 
         df = self.monitor.get_compiled_df()
+        core_temperature_series = self.predictor.estimate_core_temperature(self.monitor.HR_stream, 37.6)
 
         # The dataframe returned by the monitor not be large enough to hold all of the 
         # risk series data so we need to make it bigger if necessary
         longest_risk_series = max(self.risk_series.size, self.CT_risk_series.size,
-                                    self.HI_risk_series.size, self.LR_risk_series.size)
+                                    self.HI_risk_series.size, self.LR_risk_series.size, core_temperature_series.size)
 
         num_to_append = longest_risk_series - df.shape[0]
         if num_to_append > 0:
@@ -153,11 +153,23 @@ class PredictionHandler(object):
             filler[:] = np.NAN
             df.append(filler)
 
-        # Add the risk data to the data frame
+        # Add the risk/Estimated Core temperature data to the DataFrame
         df.loc[range(self.risk_series.size), "time Risk"] = self.risk_series.keys()
         df.loc[range(self.risk_series.size), "Risk"] = self.risk_series.values
 
-        # Save the data frame to file
+        df.loc[range(self.HI_risk_series.size), "time HI Risk"] = self.HI_risk_series.keys()
+        df.loc[range(self.HI_risk_series.size), "HI Risk"] = self.HI_risk_series.values
+
+        df.loc[range(self.CT_risk_series.size), "time CT Risk"] = self.CT_risk_series.keys()
+        df.loc[range(self.CT_risk_series.size), "CT Risk"] = self.CT_risk_series.values
+
+        df.loc[range(self.LR_risk_series.size), "time LR Risk"] = self.LR_risk_series.keys()
+        df.loc[range(self.LR_risk_series.size), "LR Risk"] = self.LR_risk_series.values
+
+        df.loc[range(core_temperature_series.size), "time est CT"] = core_temperature_series.keys()
+        df.loc[range(core_temperature_series.size), "est CT"] = core_temperature_series.values
+
+        # Save the data frame to file! yaas!
         df.to_csv(self.data_save_file)
 
     def make_prediction(self):
@@ -165,7 +177,8 @@ class PredictionHandler(object):
         user_attributes = self.get_current_attributes()
 
         # Calculate the risk!!!
-        CT_prob, HI_prob, LR_prob, risk = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, each=True)
+        tup = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream, each=True)
+        CT_prob, HI_prob, LR_prob, risk = tup
 
         # Record the time that the risk assessment was made, and save it to the series
         now = time.time()
