@@ -108,7 +108,7 @@ class PredictionHandler(object):
     def start_data_collection(self):
         # This function initiates a thread (handled by HeatStrokeMonitor)
         # that will continuously try to read and parse data from the Serial port
-        self.monitor.read_data_from_port()
+        self.monitor.read_data_from_port(log=True)
 
     def start_prediction_thread(self):
         # Start the prediction thread
