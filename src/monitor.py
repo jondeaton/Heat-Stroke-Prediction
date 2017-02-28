@@ -43,15 +43,15 @@ class SerialReadThread(threading.Timer):
             if self.ser is None:
                 logger.error("No open serial port!")
                 return
-                
+            
             try:
                 line = self.ser.readline()
+                print(line)
                 self.bytes_read += len(line)
                 logger.info("Read line: %s" % line)
                 self.callback(line)
             except:
-                if line is not None:
-                    logger.error("bad line: %s" % line)
+                logger.error("bad line: %s" % line)
 
             time.sleep(0.01)
 
