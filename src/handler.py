@@ -140,21 +140,19 @@ class PredictionHandler(object):
         # Loop through all the streams and add the most recent value to user_attributes
         for field in stream_dict:
             stream = stream_dict[field]
-            try:
-                user_attributes.set_value(field, stream.iloc[-1])
-            except:
-                logger.error("No data for: %s" % field)
-                raise
+            value = stream.iloc[-1] if stream.size else np.NAN
+            if value is np.NAN: logger.error("No data for: \"%s\"" % field)
+            user_attributes.set_value(field, value)
 
         user_attributes.set_value('Exposure to sun', 0)
 
         return user_attributes
 
     def make_prediction(self):
-        # This funciton makes a prediction
-        try:
-            user_attributes = self.get_current_attributes()
-        except:
+        # This funciton makes a Heat Stroke risk prediction        
+
+        user_attributes = self.get_current_attributes()
+        if np.NAN in user_attributes.values: 
             logger.error("Not enough data to make a predictoin.")
             return
 
@@ -242,13 +240,12 @@ def progress_bar(progress, filler="="):
     # Example: progress of 0.62 would give the following string: "[======    ]""
     return "[" + filler * int(0.5 + progress / 0.1) + " " * (1 + int(0.5 + (1 - progress) / 0.1)) + "]"
 
-
 def simulation(args):
     # This is for doing a simulation with data saved to file rather than read from the bean
     logger.error("Data simulation not yet implemented! Run without the -S flag")
 
 def run(args):
-    logger.info(emoji.emojize('Running test: %s s...' % __file__ + ' :fire:' * 3))
+    logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
     logger.debug("Instantiating prediciton handler...")
     handler = PredictionHandler(users_XML= args.users_XML, username=args.user, output_dir=args.output)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
@@ -259,7 +256,7 @@ def run(args):
     handler.predictor.init_log_reg_predictor()
 
     # Create all of the threads that the handler needs
-    handler.initialize_threads(test=args.no_bean)
+    handler.initialize_threads(test=args.no_bean or args.test)
 
     # Start all of the threads
     logger.info("Starting data collection thread...")

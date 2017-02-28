@@ -57,8 +57,8 @@ class HeatStrokePredictor(object):
         self.log_reg_predictor = None
         self.fit_log_reg_predictor = None
 
-    # Logistic Regression Predictor
     def init_log_reg_predictor(self):
+        # Logistic Regression Predictor Instantiation
         self.log_reg_predictor = linear_model.LogisticRegression(C=1e5)
         self.fit_log_reg_classifier()
         
@@ -86,8 +86,16 @@ class HeatStrokePredictor(object):
         # print(user_attributes)
         X = [[user_attributes[field] for field in self.fields_used]]
         probas = self.fit_log_reg_predictor.predict_proba(X)
-        logger.info("LR probas: %s" % probas)
-        return probas[0][0]
+        
+        #logger.debug("Classes: %s" % self.fit_log_reg_predictor.classes_)
+        #logger.debug("LR probas: %s" % probas)
+
+        # predict_proba returns a 2D array of the probabilities of X being in the classes
+        # with each class given by the columns of the returned array. To make sure that we
+        # are getting the probability of posative classification, find out which column
+        # of predict_proba is the one that corresponds to the posative (1) classification.
+        index_of_posative_class = np.where(self.fit_log_reg_predictor.classes_ == 1)[0][0]
+        return probas[0][index_of_posative_class]
 
     def calculate_heat_index(self, humidity, temperature, sun=0):
         # Heat Index Calculation
@@ -163,25 +171,29 @@ class HeatStrokePredictor(object):
         #most_recent_ST_time = mac(skin_temperature_series.keys())
         #CT = (self.core_temp_series[most_recent_CT_time] + skin_temperature_series[most_recent_ST_time]) / 2
         
-        # Just kidding, use the heart rate estimated value
+        # Just kidding, use the heart-rate-estimated value
         CT = self.core_temp_series[most_recent_CT_time]
 
-        risk = 0 if CT < 38 else (42 - CT) / (42 - 38) if CT < 42 else 1
+        upper = 41
+        lower = 38
+        x = (CT - lower) / (upper - lower)
+        risk = 0 if CT < lower else 1 / (1 + np.exp(3 - 7 * x)) if CT < upper else 1
 
         return risk
 
-    def fill_current_attributes(self, user_attributes):
+    def fill_current_attributes(self, user_attributes, verbose=True):
         temperature = user_attributes['Environmental temperature (C)']
         humidity = user_attributes['Relative Humidity']
         sun = user_attributes['Exposure to sun']
         temperature = meteocalc.Temp(temperature, 'c')
         heat_index = self.calculate_heat_index(humidity, temperature, sun=sun)
         user_attributes.set_value("Heat Index (HI)", heat_index.c)
+        if verbose: logger.info("Heat Index: %.3f C" % heat_index.c)
 
         most_recent_CT_time = max(self.core_temp_series.keys())
         estimate_CT = self.core_temp_series[most_recent_CT_time]
         user_attributes.set_value('Patient temperature', estimate_CT)
-        logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
+        if verbose: logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
 
         return user_attributes
 

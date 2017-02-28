@@ -44,7 +44,7 @@ class SerialReadThread(threading.Timer):
 
             # Check to make sure that a serial port is open
             if self.ser is None:
-                logger.error("Cannot read: No open serial port!")
+                logger.error("Cannot read data: No open serial port!")
                 return
 
             # Try reading the next line from serial port
@@ -52,7 +52,7 @@ class SerialReadThread(threading.Timer):
                 line = self.ser.readline()
                 self.bytes_read += len(line) # increment running number of read bytes
                 if self.verbose:
-                    logger.info("Read line: %s" % line)
+                    logger.debug("Read line: %s" % line)
                 self.callback(line) # Should be HeatStrokeMonitor.parse_incoming_line
             except:
                 pass
@@ -79,7 +79,7 @@ class TestSerialReadThread(threading.Timer):
         # These are some fake values to use for testing
         self.test_funcs = {
         'HR': lambda t: 100 + (180-100)*(t - self.time_started) / (0.75 * 60 * 60),
-        'ET': lambda t: 36 + 5 * np.random.random(),
+        'ET': lambda t: 45 + 5 * np.random.random(),
         'EH': lambda t: 0.8 + 0.1 * np.random.random(),
         'ST': lambda t: 100 + (180-100)*(t - self.time_started) / (1.2 * 60 * 60),
         'GSR': lambda t: 400,
@@ -94,7 +94,7 @@ class TestSerialReadThread(threading.Timer):
             field = random.choice(fields)
             value = self.test_funcs[field](time.time())
             line = "{field}: {value}".format(field=field, value=value)
-            logger.info("Read line: \"%s\"" % line)
+            logger.debug("Read line: \"%s\"" % line)
             self.callback(line)
             self.bytes_read += len(line)
             time.sleep(0.3)
