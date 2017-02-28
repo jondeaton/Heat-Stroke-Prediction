@@ -6,24 +6,24 @@ This script implements a class called HeatStrokeMonitor that handles reading dat
 port that is being written to by e blue bean, and handles the storage of that data.
 '''
 
+import os
 import time
+import serial
+import random
+import threading
+import warnings
 import logging
 import coloredlogs
-import threading
-import pandas as pd
 import emoji
-import serial
-import warnings
-import random
-
 import numpy as np
+import pandas as pd
+
 
 coloredlogs.install(level='INFO')
 logger = logging.getLogger(__name__)
 
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
-
 
 class SerialReadThread(threading.Timer):
     # This class is a thread for reading lines
@@ -35,25 +35,29 @@ class SerialReadThread(threading.Timer):
         self.callback = callback
         self.verbose = verbose
         self.bytes_read = 0
-        self._is_running = True
+        self._is_running = False
 
     def run(self):
+        self._is_running = True
+        self.bytes_read = 0
         while self._is_running:
 
+            # Check to make sure that a serial port is open
             if self.ser is None:
-                logger.error("No open serial port!")
+                logger.error("Cannot read: No open serial port!")
                 return
 
+            # Try reading the next line from serial port
             try:
                 line = self.ser.readline()
-                self.bytes_read += len(line)
+                self.bytes_read += len(line) # increment running number of read bytes
                 if self.verbose:
                     logger.info("Read line: %s" % line)
-                self.callback(line)
+                self.callback(line) # Should be HeatStrokeMonitor.parse_incoming_line
             except:
-                logger.error("bad line: %s" % line)
-                raise
+                pass
 
+            logger.warning("Sleeping...")
             time.sleep(0.01)
 
     # For stopping the thread
@@ -69,7 +73,7 @@ class TestSerialReadThread(threading.Timer):
         self.callback = callback
         self.verbose = verbose
         self.bytes_read = 0
-        self._is_running = True
+        self._is_running = False
         self.time_started = time.time()
 
         # These are some fake values to use for testing
@@ -83,6 +87,8 @@ class TestSerialReadThread(threading.Timer):
         'SR': lambda t: 0.5}
 
     def run(self):
+        self._is_running = True
+        self.bytes_read = 0
         while self._is_running:
             fields = ['HR', 'ET', 'EH', 'ST', 'GSR', 'Acc', 'SR']
             field = random.choice(fields)
@@ -99,24 +105,25 @@ class TestSerialReadThread(threading.Timer):
 
 class HeatStrokeMonitor(object):
 
-    def __init__(self, port=None):
+    def __init__(self, port=None, open_port=False):
         self.init_time = time.time
-        self.data_save_file = "monitor_data.csv"
+        self.data_save_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "monitor_data.csv")
 
         if port is None:
             self.serial_ports = ['/dev/cu.LightBlue-Bean',
                                  '/tmp/tty.LightBlue-Bean', 
-                                 '/tmp/cu.LightBlue-Bean', 
-                                 '/dev/cu.Bluetooth-Incoming-Port']
+                                 '/tmp/cu.LightBlue-Bean']
         else:
             self.serial_ports = [port]
 
-        self.set_threading_class(test=False)
-        self.checker_thread = None
+        # Class that is used to instantiate a threat that
+        # will continuously read from the serial port
+        self.threading_class = None
 
-        self.ser = None
-        self.bytes_read = 0
-        self.open_port()
+        self.ser = None # The serial port
+        self.bytes_read = 0 # The
+        if open_port:
+            self.open_port()
         
         self.HR_stream = pd.Series()
         self.ETemp_stream = pd.Series()
@@ -140,26 +147,37 @@ class HeatStrokeMonitor(object):
                 logger.warning(emoji.emojize("Failed opening serial port: %s" % port))
 
         if self.ser is None:
-            logger.error(emoji.emojize("Failed opening on all %d serial ports!" % len(ports)))
+            logger.error(emoji.emojize("Failed opening all %d serial ports!" % len(ports)))
 
-    def read_data_from_port(self, log=False):
+    def read_data_from_port(self, log=False, port=None):
         # This function starts a new thread that will continuously read data from the serial port
+        if self.threading_class is None:
+            # Make sure we have a class specified for making data read threads
+            self.set_threading_class(test=False)
+        if self.ser is None:
+            # Make sure we have an open serial port
+            self.open_port(port=port)
+
+        # Instantiate the thread for data reading
         self.read_thread = self.threading_class(self.ser, self.parse_incoming_line, verbose=log)
-        self._is_running = True
         logger.debug("Current number of threads: %d" % threading.activeCount())
         logger.debug("Starting data read thread...")
-        self.read_thread.start()
+        self.read_thread.start() # Start the thread
         logger.debug("Current number of threads: %d" % threading.activeCount())
 
     def stop_data_read(self):
         # This stopps the thread that is reading the data
-        logger.debug("Sending stop signal to data read thread...")
         self.read_thread.stop()
-        logger.debug("Stop signal sent. Threads: %d" % threading.activeCount())
+        logger.debug("Stopped data read: %d bytes read" % self.read_thread.bytes_read)
 
     def parse_incoming_line(self, line):
         now = time.time()
-        line = line.strip().decode("utf-8") 
+        line = line.strip()
+
+        # The line may be formatted as bytes and if so it needs to be turned into a string
+        if type(line) is bytes:
+            line = line.decode("utf-8")
+
         parsed_line = parse(line)
         
         # Check to make sure that it was parsed
@@ -224,9 +242,9 @@ class HeatStrokeMonitor(object):
 
     def set_threading_class(self, test=False):
         # This function decides whether the testing thread class or the real serial port
-        # thread class will be used 
-        self.threading_class = SerialReadThread if not test else TestSerialReadThread
-        logger.debug("Set threading class to: %s" % self.threading_class)
+        # thread class will be used
+        self.threading_class = TestSerialReadThread if test else SerialReadThread
+        logger.debug("Set threading class: %s" % self.threading_class.__name__)
 
 def parse(line):
     # This function parses a string read from serial of the form
@@ -235,11 +253,10 @@ def parse(line):
     # HR: 121
     # which would result in a floating point return of 121.0 from this function
     try:
-        value = float(line[2 + line.index(":"):])
+        return float(line[2 + line.index(":"):])
     except:
         logger.error("Malfored line: %s" % line)
-        value = None
-    return value
+        return None
 
 def test(args):
     logger.info("Testing: %s ..." % __file__)
@@ -250,9 +267,17 @@ def test(args):
     logger.info("Starting data reading (control-C to exit)...")
     monitor.read_data_from_port(log=True)
 
-    sec = 5
-    logger.debug("Pausing for %d seconds..." % sec)  
-    time.sleep(sec)
+    try:
+        logger.warning("Pausing main thread ('q' or control-C to abort)...")
+        # This makes is so that the user can press any key on the keyboard
+        # but it won't exit unless they KeyboardInterrupt the process
+        while True:
+            user_input = input("")
+            if user_input == 'q':
+                logger.warning("Exit signal recieved. Terminating threads...")
+                break
+    except KeyboardInterrupt:
+        logger.warning("Keyboard Interrupt. Terminating threads...")
 
     monitor.stop_data_read()
 
@@ -263,8 +288,8 @@ def main():
     script_description = "This script tests Heat stroke monitor monitor connectivity"
     parser = argparse.ArgumentParser(description=script_description)
 
-    parser.add_argument("--test", action="store_true", help="Run tests")
-    parser.add_argument("-p", "--port", required=False, help="Serial port specification")
+    parser.add_argument("--test", action="store_true", help="Run a test with fake data not read from seial port")
+    parser.add_argument("-p", "--port", required=False, help="Specify the serial port")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
