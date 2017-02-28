@@ -19,6 +19,7 @@ import read_data
 
 # Machine Learning Modules
 import numpy as np
+import pandas as pd
 from sklearn import linear_model
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,10 @@ class HeatStrokePredictor(object):
         logger.debug("Reader initialized")
 
         self.use_all_fields = False
-        self.fields_used = ['Patient temperature', 'Heat Index (HI)', 'Relative Humidity', 'Environmental temperature (C)']
+        self.fields_used = ['Patient temperature', 'Heat Index (HI)', 
+        'Relative Humidity', 'Environmental temperature (C)']
+
+
         self.outcome_field = self.reader.outcome_field
 
         self.log_reg_predictor = None
@@ -78,6 +82,8 @@ class HeatStrokePredictor(object):
     def make_log_reg_prediction(self, user_attributes):
         # This function returns a Logistic-Regression calculated probability
         # user_state needs to be
+        logger.debug("Making Logistic Regression prediction with:")
+        print(user_attributes)
         X = [user_attributes[field] for field in self.fields_used]
         probas = self.fit_log_reg_predictor.predict_proba(X)
         return probabs[0]
@@ -126,7 +132,7 @@ class HeatStrokePredictor(object):
         core_temp_series = pd.Series()
 
         # Iterate through HR time sequence
-        for time in heat_rate_stream.keys:
+        for time in heart_rate_series.keys():
 
             # Time Update Phase
             x_pred = a * x # Equation 3
@@ -146,24 +152,34 @@ class HeatStrokePredictor(object):
         # This function estimates risk of Heat Stroke based on core temperature
         # estimation from heart rate
 
-        core_temp_series = self.estimate_core_temperature(heart_rate_series, CTstart)
-        most_recent_CT_time = max(core_temp_series.keys())
-        most_recent_ST_time = mac(skin_temperature_series.keys())
-
+        self.core_temp_series = self.estimate_core_temperature(heart_rate_series, CTstart)
+        
         # Average the estimate given by the Kalman Filter Model and skin temperature
-        CT = (core_temp_series[most_recent_CT_time] + skin_temperature_series[most_recent_ST_time]) / 2
-        if CT < 38:
-            risk = 0
-        elif CT < 42:
-            risk = (42 - CT) / (42 - 38)
-        else:
-            risk = 1
+        most_recent_CT_time = max(self.core_temp_series.keys())
+        #most_recent_ST_time = mac(skin_temperature_series.keys())
+        #CT = (self.core_temp_series[most_recent_CT_time] + skin_temperature_series[most_recent_ST_time]) / 2
+        
+        # Just kidding, use the heart rate estimated value
+        CT = self.core_temp_series[most_recent_CT_time]
+
+        risk = 0 if CT < 38 else (42 - CT) / (42 - 38) if CT < 42 else 1
 
         return risk
 
-    # Makes all predicitons and combines them
-    def make_prediction(self, user_attributes, heart_rate_stream, each=False):
-        
+    def make_prediction(self, user_attributes, heart_rate_stream, skin_temperature_series, each=False):
+        # This function makes all Heat Stroke Risk
+
+        # Core Temp Estimation
+        # This function will also update self.core_temp_series, which can be used to 
+        # fill the current user_attributes Series with current Core temperature
+        CT_prob = self.core_temperature_risk(heart_rate_stream, skin_temperature_series)
+
+        most_recent_CT_time = max(self.core_temp_series.keys())
+
+        estimate_CT = self.core_temp_series[most_recent_CT_time]
+        logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
+        user_attributes.set_value('Patient temperature', estimate_CT)
+
         # Logistic regression risk
         LR_prob = self.make_log_reg_prediction(user_attributes)
         
@@ -173,8 +189,7 @@ class HeatStrokePredictor(object):
         sun = user_attributes['Exposure to sun']
         HI_prob = self.make_heat_index_prediction(humidity, temp, sun=sun)
         
-        # Core Temp Estimation
-        CT_prob = self.core_temperature_risk(heart_rate_stream, skin_temperature_series)
+        
 
         # Combined probability
         combined_prob = (CT_prob + HI_prob + LR_prob) / 3
