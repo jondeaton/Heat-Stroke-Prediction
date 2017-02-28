@@ -198,7 +198,7 @@ class PredictionHandler(object):
             logger.debug("Threads died. Thread count: %d" % threading.activeCount())
 
     def refresh_plots(self):
-
+        pass
 
     def save_all_data(self):
         # This saves all the recorded data including risk estimates
