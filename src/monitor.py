@@ -46,7 +46,7 @@ class SerialReadThread(threading.Timer):
             
             try:
                 line = self.ser.readline()
-                print(line)
+                print("line: %s" % line)
                 self.bytes_read += len(line)
                 logger.info("Read line: %s" % line)
                 self.callback(line)
