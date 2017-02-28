@@ -51,7 +51,6 @@ class HeatStrokePredictor(object):
         self.fields_used = ['Patient temperature', 'Heat Index (HI)', 
         'Relative Humidity', 'Environmental temperature (C)']
 
-
         self.outcome_field = self.reader.outcome_field
 
         self.log_reg_predictor = None
@@ -201,32 +200,48 @@ class HeatStrokePredictor(object):
 
         return user_attributes
 
-    def make_prediction(self, user_attributes, heart_rate_stream, skin_temperature_series, each=False):
+    def make_predictions(self, user_attributes, heart_rate_stream, skin_temperature_series):
         # This function makes all Heat Stroke Risk Prediction
 
         # Core Temp Risk Estimation
         # This function will also update self.core_temp_series, which can be used to 
         # fill the current user_attributes Series with current core temperature
-        CT_prob = self.core_temperature_risk(heart_rate_stream, skin_temperature_series)
-        
+        try:
+            CT_prob = self.core_temperature_risk(heart_rate_stream, skin_temperature_series)
+        except:
+            logger.warning("Could not make core temperature risk estimation")
+            CT_prob = None
+
         # Heat Index Risk Estimation
         temp = user_attributes['Environmental temperature (C)']
         humidity = user_attributes['Relative Humidity']
         sun = user_attributes['Exposure to sun']
-        HI_prob = self.make_HI_risk_prediction(humidity, temp, sun=sun)
+        try:
+            HI_prob = self.make_HI_risk_prediction(humidity, temp, sun=sun)
+        except:
+            logger.warning("Could not make Heat Index risk estimation")
+            HI_prob = None
 
         # Logistic regression risk
         user_attributes = self.fill_current_attributes(user_attributes)
         if np.any(np.isnan(user_attributes.values)):
-            logger.error("Insufficient data for Logistic Regression")
-            return
-        LR_prob = self.make_log_reg_prediction(user_attributes)
+            logger.warning("Insufficient data for Logistic Regression.")
+            LR_prob = None
+        else:
+            LR_prob = self.make_log_reg_prediction(user_attributes)
         
         # Combined probability
+        return CT_prob, HI_prob, LR_prob
+
+    def combine_predictions(self, CT_prob, HI_prob, LR_prob):
+        # This function decides how to combine the different predicted 
+        # risks into one comprehensive
+        CT_prob = CT_prob if CT_prob is not None else 0
+        HI_prob = HI_prob if HI_prob is not None else 0
+        LR_prob = LR_prob if LR_prob is not None else 0
+        
         combined_prob = (CT_prob + HI_prob + LR_prob) / 3
-
-        return combined_prob if not each else (CT_prob, HI_prob, LR_prob, combined_prob)
-
+        return combined_prob 
 
 def main():
     logger.info("Making predictor object...")

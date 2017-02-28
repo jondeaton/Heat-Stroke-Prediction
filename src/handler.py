@@ -91,7 +91,7 @@ class PredictionHandler(object):
         self.monitor.set_threading_class(test=test)
 
         # Make a thread that preiodically makes a risk prediction
-        self.prediciton_thread = LoopingThread(self.make_prediction, 5)
+        self.prediciton_thread = LoopingThread(self.make_predictions, 5)
 
         # Make a thread that periodically saves all the data
         self.saving_thread = LoopingThread(self.save_all_data, 30)
@@ -139,14 +139,14 @@ class PredictionHandler(object):
 
         return user_attributes
 
-    def make_prediction(self):
+    def make_predictions(self, verbose=True):
         # This funciton makes a Heat Stroke risk prediction        
 
         user_attributes = self.get_current_attributes()
 
         # Calculate the risk!!!
-        tup = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream, each=True)
-        CT_prob, HI_prob, LR_prob, risk = tup
+        CT_prob, HI_prob, LR_prob = self.predictor.make_predictions(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream)
+        risk = self.predictor.combine_predictions(CT_prob, HI_prob, LR_prob)
 
         # Record the time that the risk assessment was made, and save it to the series
         now = time.time()
@@ -155,12 +155,13 @@ class PredictionHandler(object):
         self.HI_risk_series.set_value(now, HI_prob)
         self.LR_risk_series.set_value(now, LR_prob)
 
-        # Log the risk to terminal
-        logger.info(colored("CT Risk: %.4f %s" % (CT_prob, progress_bar(CT_prob)), "yellow"))
-        logger.info(colored("HI Risk: %.4f %s" % (HI_prob, progress_bar(HI_prob)), "yellow"))
-        logger.info(colored("LR Risk: %.4f %s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
-        bar = progress_bar(risk, filler=":fire: ")
-        logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
+        # Log the risk to terminal if verbose
+        if verbose:
+            logger.info(colored("CT Risk: %.4s\t%s" % (CT_prob, progress_bar(CT_prob)), "yellow"))
+            logger.info(colored("HI Risk: %.4s\t%s" % (HI_prob, progress_bar(HI_prob)), "yellow"))
+            logger.info(colored("LR Risk: %.4s\t%s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
+            bar = progress_bar(risk, filler=":fire: ")
+            logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
         
     def stop_all_threads(self, wait=False):
         # This function sends a stop signal to all threads
@@ -240,14 +241,15 @@ class PredictionHandler(object):
         self.data_save_file = os.path.join(self.output_dir, "all_data%s.csv" % timestamp)
 
 
-def progress_bar(progress, filler="="):
+def progress_bar(progress, filler="=", length=10):
     # This function makes a string that looks like a progress bar
-    # Example: progress of 0.62 would give the following string: "[======    ]""
-    return "[" + filler * int(0.5 + progress / 0.1) + " " * (1 + int(0.5 + (1 - progress) / 0.1)) + "]"
+    # Example: progress of 0.62 would give the following string: "[======    ]"
+    progress = 0 if progress is None else progress
+    return "[" + filler * int(0.5 + progress * length) + " " * (int(0.5 + (1 - progress) * length)) + "]"
 
 def simulation(args):
     # This is for doing a simulation with data saved to file rather than read from the bean
-    logger.error("Data simulation not yet implemented! Run without the -S flag")
+    logger.error("Data simulation not yet implemented! Run without -S flag")
 
 def run(args):
     logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
@@ -311,8 +313,14 @@ def main():
     options_group.add_argument('-u', '--user', default=None, help="Monitor user name")
     options_group.add_argument("--users", dest="users_XML", default=None, help="Monitor users XML file")
     options_group.add_argument('-nb', '--no-bean', dest="no_bean", action="store_true", help="Don't read from serial port")
-    options_group.add_argument('-S', '--simulate', action="store_true", help="Simulate run with saved data")
     options_group.add_argument('-tf', '--timestamp-files', dest="timestamp_files", action="store_true", help="Save unique data files")
+
+    simulation_group = parser.add_argument_group("Simulation")
+    simulation_group.add_argument('-S', '--simulate', action="store_true", help="Simulate run with saved data")
+    simulation_group.add_argument('-rt', '--real-time', dest="real_time", action="store_true", help="Simulate in real-time")
+
+    plotting_group = parser.add_argument_group("Live Plotting")
+    plotting_group.add_argument('-plot', '--live-plotting', dest="live_plotting", action="store_true", help="Display live plots")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -332,6 +340,7 @@ def main():
     if args.simulate:
         simulate(args)
     else:
+        if args.real_time: logger.warning("-rf (\"--real-time\") flag for use with simulation (-S)")
         run(args)
 
 if __name__ == "__main__":
