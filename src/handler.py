@@ -178,19 +178,22 @@ class PredictionHandler(object):
         
     def stop_all_threads(self, wait=False):
         # This function sends a stop signal to all threads
-        # The optional wait parameter indicates whether this function should wait to return until it is sure
-        # that all of the treats have stopped running
         self.stop_prediction_thread()
         self.monitor.stop_data_read()
         self.saving_thread.stop()
 
+        # The optional 'wait' argument indicates whether this function should wait to return until it is sure
+        # that all of the treads have stopped running
         if wait:
             logger.debug("Waiting for threads to die...")
             while True:
                 try:
+                    # Waiting for all the threads to stop
                     while threading.activeCount() > 1: time.sleep(0.1)
                     break
                 except KeyboardInterrupt:
+                    # This part just makes so that if the user mashes the KeyboardInterrupt
+                    # the program will still exit gradefully without spitting out lots of errors
                     continue
 
             logger.debug("Threads died. Thread count: %d" % threading.activeCount())
@@ -239,7 +242,13 @@ def progress_bar(progress, filler="="):
     # Example: progress of 0.62 would give the following string: "[======    ]""
     return "[" + filler * int(0.5 + progress / 0.1) + " " * (1 + int(0.5 + (1 - progress) / 0.1)) + "]"
 
-def test(args):
+
+def simulation(args):
+    # This is for doing a simulation with data saved to file rather than read from the bean
+    logger.error("Data simulation not yet implemented! Run without the -S flag")
+
+def run(args):
+    logger.info(emoji.emojize('Running test: %s s...' % __file__ + ' :fire:' * 3))
     logger.debug("Instantiating prediciton handler...")
     handler = PredictionHandler(users_XML= args.users_XML, username=args.user, output_dir=args.output)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
@@ -268,7 +277,7 @@ def test(args):
             user_input = input("")
             if user_input == 'q':
                 logger.warning("Exit signal recieved. Terminating threads...")
-            break
+                break
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt. Terminating threads...")
 
@@ -298,6 +307,7 @@ def main():
     options_group.add_argument('-u', '--user', default=None, help="Monitor user name")
     options_group.add_argument("--users", dest="users_XML", default=None, help="Monitor users XML file")
     options_group.add_argument('-nb', '--no-bean', dest="no_bean", action="store_true", help="Don't read from serial port")
+    options_group.add_argument('-S', '--simulate', action="store_true", help="Simulate run with saved data")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -314,11 +324,10 @@ def main():
         warnings.filterwarnings('ignore')
         coloredlogs.install(level='WARNING')
 
-    if args.test:
-        logger.info(emoji.emojize('Initializing test...' + ' :fire:' * 3))
-        test(args)
+    if args.simulate:
+        simulate(args)
     else:
-        logger.warning("Integrated prediction not yet implemented. Use the --test flag.")
+        run(args)
 
 if __name__ == "__main__":
     main()
