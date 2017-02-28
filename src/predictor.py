@@ -174,10 +174,14 @@ class HeatStrokePredictor(object):
         # Just kidding, use the heart-rate-estimated value
         CT = self.core_temp_series[most_recent_CT_time]
 
-        upper = 41
+        upper = 40
         lower = 38
         x = (CT - lower) / (upper - lower)
-        risk = 0 if CT < lower else 1 / (1 + np.exp(3 - 7 * x)) if CT < upper else 1
+        # Logistic Curve
+        risk = 1 / (1 + np.exp(3.6 - 7 * x))
+
+        # Alternatively
+        #risk = 0 if x < 0 else x if x < 1 else 1
 
         return risk
 
@@ -198,7 +202,7 @@ class HeatStrokePredictor(object):
         return user_attributes
 
     def make_prediction(self, user_attributes, heart_rate_stream, skin_temperature_series, each=False):
-        # This function makes all Heat Stroke Risk
+        # This function makes all Heat Stroke Risk Prediction
 
         # Core Temp Risk Estimation
         # This function will also update self.core_temp_series, which can be used to 
@@ -213,6 +217,9 @@ class HeatStrokePredictor(object):
 
         # Logistic regression risk
         user_attributes = self.fill_current_attributes(user_attributes)
+        if np.any(np.isnan(user_attributes.values)):
+            logger.error("Insufficient data for Logistic Regression")
+            return
         LR_prob = self.make_log_reg_prediction(user_attributes)
         
         # Combined probability

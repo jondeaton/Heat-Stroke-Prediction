@@ -58,7 +58,7 @@ class LoopingThread(threading.Timer):
 
 class PredictionHandler(object):
 
-    def __init__(self, users_XML="users.xml", username=None, output_dir=None):
+    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False):
         
         logger.debug("Instantiating user...")
         self.user = user.MonitorUser(users_XML=users_XML, load=True, username=username)
@@ -83,17 +83,8 @@ class PredictionHandler(object):
         self.HI_risk_series = pd.Series()
         self.LR_risk_series = pd.Series()
 
-        # Set the output directory and save files
-        # Make a directory to contain the files if one doesn't already exist
-        if output_dir and not os.path.isdir(output_dir): os.mkdir(output_dir)
-        
-        # Set the output directory to be the data directory if one was not provided
-        current_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-        self.output_dir = output_dir if output_dir else current_dir
-
-        # Set the output file paths inside of the output directory
-        self.risk_csv_file = os.path.join(self.output_dir, "risk_series.csv")
-        self.data_save_file = os.path.join(self.output_dir, "all_data.csv")
+        # Set all the output files to the appropriate paths
+        self.set_output_files(output_dir, timestamp_files)
 
     def initialize_threads(self, test=False):
         # Make a threading object to collect the data
@@ -152,9 +143,6 @@ class PredictionHandler(object):
         # This funciton makes a Heat Stroke risk prediction        
 
         user_attributes = self.get_current_attributes()
-        if np.NAN in user_attributes.values: 
-            logger.error("Not enough data to make a predictoin.")
-            return
 
         # Calculate the risk!!!
         tup = self.predictor.make_prediction(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream, each=True)
@@ -198,7 +186,7 @@ class PredictionHandler(object):
 
     def save_all_data(self):
         # This saves all the recorded data including risk estimates
-        logger.debug("Saving all data to: %s ..." % os.path.basename(self.data_save_file))
+        logger.debug("Saving data to: %s ..." % os.path.basename(self.data_save_file))
 
         df = self.monitor.get_compiled_df()
         core_temperature_series = self.predictor.estimate_core_temperature(self.monitor.HR_stream, 37.6)
@@ -235,6 +223,23 @@ class PredictionHandler(object):
         # Save the data frame to file! yaas!
         df.to_csv(self.data_save_file)
 
+    def set_output_files(self, output_dir, timestamp_files):
+        # Set the output directory and save files
+        # Make a directory to contain the files if one doesn't already exist
+        if output_dir and not os.path.isdir(output_dir): os.mkdir(output_dir)
+        
+        # Set the output directory to be the data directory if one was not provided
+        current_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+        self.output_dir = output_dir if output_dir else current_dir
+
+        # A timestamp for for output files
+        timestamp = time.strftime("_%Y.%m.%d-%H.%M.%S_") if timestamp_files else ""
+
+        # Set the output file paths inside of the output directory
+        self.risk_csv_file = os.path.join(self.output_dir, "risk_series%s.csv" % timestamp)
+        self.data_save_file = os.path.join(self.output_dir, "all_data%s.csv" % timestamp)
+
+
 def progress_bar(progress, filler="="):
     # This function makes a string that looks like a progress bar
     # Example: progress of 0.62 would give the following string: "[======    ]""
@@ -247,7 +252,7 @@ def simulation(args):
 def run(args):
     logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
     logger.debug("Instantiating prediciton handler...")
-    handler = PredictionHandler(users_XML= args.users_XML, username=args.user, output_dir=args.output)
+    handler = PredictionHandler(users_XML= args.users_XML, username=args.user, output_dir=args.output, timestamp_files=args.timestamp_files)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
     # Tell the prediction handler whether or not to use prefiltered data or to refilter it
@@ -257,6 +262,8 @@ def run(args):
 
     # Create all of the threads that the handler needs
     handler.initialize_threads(test=args.no_bean or args.test)
+
+    start_time = time.time()
 
     # Start all of the threads
     logger.info("Starting data collection thread...")
@@ -305,6 +312,7 @@ def main():
     options_group.add_argument("--users", dest="users_XML", default=None, help="Monitor users XML file")
     options_group.add_argument('-nb', '--no-bean', dest="no_bean", action="store_true", help="Don't read from serial port")
     options_group.add_argument('-S', '--simulate', action="store_true", help="Simulate run with saved data")
+    options_group.add_argument('-tf', '--timestamp-files', dest="timestamp_files", action="store_true", help="Save unique data files")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
