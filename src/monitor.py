@@ -44,16 +44,16 @@ class SerialReadThread(threading.Timer):
                 logger.error("No open serial port!")
                 return
             
+            print("Trying to read from serial...")
+
             try:
                 line = self.ser.readline()
-                print("line: %s" % line)
                 self.bytes_read += len(line)
                 logger.info("Read line: %s" % line)
                 self.callback(line)
             except:
                 logger.error("bad line: %s" % line)
                 raise
-                
 
             time.sleep(0.01)
 
