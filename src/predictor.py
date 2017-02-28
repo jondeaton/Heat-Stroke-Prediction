@@ -84,7 +84,7 @@ class HeatStrokePredictor(object):
         # logger.debug("Making Logistic Regression prediction with:")
         # print(user_attributes)
 
-        print(user_attributes)
+        #print(user_attributes)
         X = [[user_attributes[field] for field in self.fields_used]]
         probas = self.fit_log_reg_predictor.predict_proba(X)
         
