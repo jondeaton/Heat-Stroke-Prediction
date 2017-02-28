@@ -159,7 +159,7 @@ class HeatStrokeMonitor(object):
 
     def parse_incoming_line(self, line):
         now = time.time()
-
+        line = line.strip().decode("utf-8") 
         parsed_line = parse(line)
         
         # Check to make sure that it was parsed
@@ -234,7 +234,6 @@ def parse(line):
     # for example, a heart rate reading looks like:
     # HR: 121
     # which would result in a floating point return of 121.0 from this function
-    line = line.strip().decode("utf-8") 
     try:
         value = float(line[2 + line.index(":"):])
     except:
