@@ -234,6 +234,7 @@ def parse(line):
     # for example, a heart rate reading looks like:
     # HR: 121
     # which would result in a floating point return of 121.0 from this function
+    line = line.strip()
     try:
         value = float(line[2 + line.index(":"):])
     except:
