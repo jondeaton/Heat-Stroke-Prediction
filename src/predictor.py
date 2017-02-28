@@ -206,7 +206,7 @@ class HeatStrokePredictor(object):
             user_attributes.set_value('Skin Temperature', estimate_CT)
 
         if np.isnan(user_attributes['Skin color (flushed/normal=1, pale=0.5, cyatonic=0)']):
-            user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 1)
+            user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 0.5)
 
         return user_attributes
 
