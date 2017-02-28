@@ -189,9 +189,9 @@ class PredictionHandler(object):
 
         # Log the risk to terminal if verbose
         if verbose:
-            logger.info(colored("CT Risk: %s\t%s" % (CT_prob, progress_bar(CT_prob)), "yellow"))
-            logger.info(colored("HI Risk: %s\t%s" % (HI_prob, progress_bar(HI_prob)), "yellow"))
-            logger.info(colored("LR Risk: %s\t%s" % (LR_prob, progress_bar(LR_prob)), "yellow"))
+            logger.info(colored("CT Risk: %s\t%s" % (progress_bar(CT_prob), CT_prob), "yellow"))
+            logger.info(colored("HI Risk: %s\t%s" % (progress_bar(HI_prob), HI_prob), "yellow"))
+            logger.info(colored("LR Risk: %s\t%s" % (progress_bar(LR_prob), LR_prob), "yellow"))
             bar = progress_bar(risk, filler=":fire: ")
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
    
