@@ -35,7 +35,7 @@ class SerialReadThread(threading.Timer):
         self.callback = callback
         self.verbose = verbose
         self.bytes_read = 0
-        self._is_running = False
+        self._is_running = True
 
     def run(self):
         while self._is_running:
