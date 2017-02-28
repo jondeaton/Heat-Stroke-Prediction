@@ -200,10 +200,10 @@ class HeatStrokePredictor(object):
 
         # Yeah these are fucked
         if np.isnan(user_attributes.Acceleration):
-            user_attributes.set_value('Acceleration', 0)
+            user_attributes.set_value('Acceleration', 0.5)
 
         if np.isnan(user_attributes['Skin Temperature']):
-            user_attributes.set_value('Skin Temperature', 37)
+            user_attributes.set_value('Skin Temperature', 100)
 
         if np.isnan(user_attributes['Skin color (flushed/normal=1, pale=0.5, cyatonic=0)']):
             user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 0.5)
