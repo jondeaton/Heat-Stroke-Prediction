@@ -13,8 +13,8 @@ import threading
 import logging
 import warnings
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 import emoji
 import coloredlogs
@@ -58,20 +58,26 @@ class LoopingThread(threading.Timer):
 
 class PredictionHandler(object):
 
-    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False):
+    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False, live_plotting=False):
         
-        logger.debug("Instantiating user...")
+        logger.debug("Instantiating MonitorUser...")
         self.user = user.MonitorUser(users_XML=users_XML, load=True, username=username)
-        logger.info(emoji.emojize("Monitor user: %s %s" % (self.user.name, self.user.emoji)))
+        logger.info(emoji.emojize("MonitorUser name: %s %s" % (self.user.name, self.user.emoji)))
 
-        logger.debug("Instantiating monitor...")
+        logger.debug("Instantiating HeatStrokeMonitor...")
         self.monitor = monitor.HeatStrokeMonitor()
-        logger.debug(emoji.emojize("Monitor instantiated :heavy_check_mark:"))
+        logger.debug(emoji.emojize("HeatStrokeMonitor instantiated :heavy_check_mark:"))
 
-        logger.debug("Instantiating predictor...")
+        logger.debug("Instantiating HeatStrokePredictor...")
         self.predictor = predictor.HeatStrokePredictor()
-        logger.debug(emoji.emojize("Predictor instantiated :heavy_check_mark:"))
-        
+        logger.debug(emoji.emojize("HeatStrokePredictor instantiated :heavy_check_mark:"))
+
+        self.live_plotting = live_plotting
+        if live_plotting:
+            logger.debug("Instantiating LivePlotter....")
+            self.plotter = plotter.LivePlotter()
+            logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
+
         self.current_fields = self.user.series.keys()
         self.user_fields = ['Age', 'Sex', 'Weight (kg)', 'BMI', 'Height (cm)',
                              'Nationality', 'Cardiovascular disease history',
@@ -86,6 +92,7 @@ class PredictionHandler(object):
         # Set all the output files to the appropriate paths
         self.set_output_files(output_dir, timestamp_files)
 
+    # Thread control
     def initialize_threads(self, test=False):
         # Make a threading object to collect the data
         self.monitor.set_threading_class(test=test)
@@ -95,6 +102,9 @@ class PredictionHandler(object):
 
         # Make a thread that periodically saves all the data
         self.saving_thread = LoopingThread(self.save_all_data, 30)
+
+        # Make a thread for live plotting
+        self.plotting_thread = LoopingThread(self.refresh_plots, 5)
 
     def start_data_collection(self):
         # This function initiates a thread (handled by HeatStrokeMonitor)
@@ -108,6 +118,8 @@ class PredictionHandler(object):
     def stop_prediction_thread(self):
         # For starting the predicont thread
         self.prediciton_thread.stop()
+
+
 
     def get_current_attributes(self):
         # This function gets data from the MonitorUser instantiation and formats it in a way
@@ -185,6 +197,9 @@ class PredictionHandler(object):
 
             logger.debug("Threads died. Thread count: %d" % threading.activeCount())
 
+    def refresh_plots(self):
+
+
     def save_all_data(self):
         # This saves all the recorded data including risk estimates
         logger.debug("Saving data to: %s ..." % os.path.basename(self.data_save_file))
@@ -254,7 +269,8 @@ def simulation(args):
 def run(args):
     logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
     logger.debug("Instantiating prediciton handler...")
-    handler = PredictionHandler(users_XML= args.users_XML, username=args.user, output_dir=args.output, timestamp_files=args.timestamp_files)
+    handler = PredictionHandler(users_XML= args.users_XML, username=args.user, 
+        output_dir=args.output, timestamp_files=args.timestamp_files, live_plotting=args.live_plotting)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
     # Tell the prediction handler whether or not to use prefiltered data or to refilter it
@@ -296,7 +312,7 @@ def run(args):
 
 def main():
     import argparse
-    script_description = "This script reads data from a monitor and uses"
+    script_description = "This script is the front-end handler of the Heat Stroke Monitor system."
     parser = argparse.ArgumentParser(description=script_description)
 
     input_group = parser.add_argument_group("Inputs")
