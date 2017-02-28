@@ -43,7 +43,6 @@ class SerialReadThread(threading.Timer):
             if self.ser is None:
                 logger.error("No open serial port!")
                 return
-            
 
             try:
                 line = self.ser.readline()
@@ -238,6 +237,7 @@ def parse(line):
     try:
         value = float(line[2 + line.index(":"):])
     except:
+        logger.error("Malfored line: %s" % line)
         value = None
     return value
 
@@ -248,7 +248,6 @@ def test(args):
     monitor.set_threading_class(test=args.test)
 
     logger.info("Starting data reading (control-C to exit)...")
-    # monitor.read_data_from_port(print=True)
     monitor.read_data_from_port(log=True)
 
     sec = 5
