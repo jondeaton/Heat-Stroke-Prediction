@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+'''
+user.py
+
+This script contains the implementation for the MonitorUser class, which loads and stores demographic information
+about a HeatStrokeMonitor.
+'''
 
 import os
 import xml

@@ -128,7 +128,6 @@ class HeatStrokeMonitor(object):
         self.parameters = ["HR", "ET", "EH", "ST", "GSR", "Acc", "SR"]
         self.fields = np.ravel([["time %s" % param, param] for param in self.parameters])
 
-
     def open_port(self, port=None):
         ports = self.serial_ports if port is None else [port]
         for port in ports:
@@ -227,6 +226,7 @@ class HeatStrokeMonitor(object):
         # thread class will be used 
         self.threading_class = SerialReadThread if not test else TestSerialReadThread
 
+
 def parse(line):
     # This function parses a string read from serial of the form
     # <identifier: <value>
@@ -238,7 +238,6 @@ def parse(line):
     except:
         value = None
     return value
-
 
 def test(args):
     logger.info("Testing: %s ..." % __file__)
