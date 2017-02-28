@@ -104,9 +104,9 @@ class HeatStrokeMonitor(object):
         self.data_save_file = "monitor_data.csv"
 
         if port is None:
-            self.serial_ports = ['/tmp/cu.LightBlue-Bean',
+            self.serial_ports = ['/dev/cu.LightBlue-Bean',
                                  '/tmp/tty.LightBlue-Bean', 
-                                 '/dev/cu.LightBlue-Bean', 
+                                 '/tmp/cu.LightBlue-Bean', 
                                  '/dev/cu.Bluetooth-Incoming-Port']
         else:
             self.serial_ports = [port]
