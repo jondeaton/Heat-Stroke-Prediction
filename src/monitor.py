@@ -57,7 +57,6 @@ class SerialReadThread(threading.Timer):
             except:
                 pass
 
-            logger.warning("Sleeping...")
             time.sleep(0.01)
 
     # For stopping the thread
