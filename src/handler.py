@@ -189,10 +189,10 @@ class PredictionHandler(object):
 
         # Log the risk to terminal if verbose
         if verbose:
-            logger.info(colored("CT Risk: %s\t%s" % (progress_bar(CT_prob), CT_prob), "yellow"))
-            logger.info(colored("HI Risk: %s\t%s" % (progress_bar(HI_prob), HI_prob), "yellow"))
-            logger.info(colored("LR Risk: %s\t%s" % (progress_bar(LR_prob), LR_prob), "yellow"))
-            bar = progress_bar(risk, filler=":fire: ")
+            logger.info(colored("CT Risk: %s  %s" % (progress_bar(CT_prob), CT_prob), "yellow"))
+            logger.info(colored("HI Risk: %s  %s" % (progress_bar(HI_prob), HI_prob), "yellow"))
+            logger.info(colored("LR Risk: %s  %s" % (progress_bar(LR_prob), LR_prob), "yellow"))
+            bar = progress_bar(risk, filler=":fire: ", length=10)
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
    
     def refresh_plots(self):
@@ -254,7 +254,7 @@ class PredictionHandler(object):
         self.data_save_file = os.path.join(self.output_dir, "all_data%s.csv" % timestamp)
 
 
-def progress_bar(progress, filler="=", length=10):
+def progress_bar(progress, filler="=", length=16):
     # This function makes a string that looks like a progress bar
     # Example: progress of 0.62 would give the following string: "[======    ]"
     progress = 0 if progress is None else progress
