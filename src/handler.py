@@ -75,7 +75,7 @@ class PredictionHandler(object):
         self.live_plotting = live_plotting
         if live_plotting:
             logger.debug("Instantiating LivePlotter....")
-            self.plotter = plotter.LivePlotter()
+            self.plotter = plotter.LivePlotter(self)
             logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
 
         self.current_fields = self.user.series.keys()
@@ -102,9 +102,6 @@ class PredictionHandler(object):
 
         # Make a thread that periodically saves all the data
         self.saving_thread = LoopingThread(self.save_all_data, 30)
-
-        # Make a thread for live plotting
-        self.plotting_thread = LoopingThread(self.refresh_plots, 5)
 
     def start_data_collection(self):
         # This function initiates a thread (handled by HeatStrokeMonitor)
@@ -194,9 +191,6 @@ class PredictionHandler(object):
             logger.info(colored("LR Risk: %s  %s" % (progress_bar(LR_prob), LR_prob), "yellow"))
             bar = progress_bar(risk, filler=":fire: ", length=10)
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
-   
-    def refresh_plots(self):
-        pass
 
     def save_all_data(self):
         # This saves all the recorded data including risk estimates
