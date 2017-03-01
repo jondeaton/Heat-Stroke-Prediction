@@ -112,9 +112,9 @@ class HeatStrokePredictor(object):
         # Heat Index Risk Predictor
         heat_index = self.calculate_heat_index(humidity, temperature, sun=sun)
 
-        hi = heat_index.f # Heat index in Farenheight
-        low_sat = 80 # Lower temperature saturation in Farenheight
-        up_sat = 130 # Upper temperature saturatio in Farenheight
+        hi = heat_index.c # Heat index in Farenheight
+        low_sat = 30 # Lower temperature saturation in Farenheight
+        up_sat = 41 # Upper temperature saturatio in Farenheight
 
         risk = 0 if hi < low_sat else (hi - low_sat) / (up_sat - low_sat) if hi < up_sat else 1 
 
