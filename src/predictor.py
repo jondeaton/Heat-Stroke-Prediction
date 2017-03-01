@@ -41,6 +41,7 @@ class HeatStrokePredictor(object):
         # Wet Bulb Globe Temperature
         self.wbgt_predictor = None
 
+        # Use prefiltered data?
         self.use_prefiltered = False
 
         logger.debug("Initializing data reader...")
@@ -100,8 +101,12 @@ class HeatStrokePredictor(object):
 
     def calculate_heat_index(self, humidity, temperature, sun=0):
         # Heat Index Calculation
+        # Make sure that humidity is a ratio. NOT A PERCENTAGE
+        if humidity > 1 or humidity < 0:
+            logger.error("Make humidity in [0, 1] NOT PERCENTAGE.")
+            throw ValueError
         temp = meteocalc.Temp(temperature, 'c')
-        heat_index = meteocalc.heat_index(temperature=temp, humidity=humidity)
+        heat_index = meteocalc.heat_index(temperature=temp, humidity=100 * humidity)
         # Wikipedia: Exposure to full sunshine can increase heat index values by up to 8 °C (14 °F)[7]
         # Heat Index on the website of the Pueblo, CO United States National Weather Service.
         # Link: http://web.archive.org/web/20110629041320/http://www.crh.noaa.gov/pub/heat.php
