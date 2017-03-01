@@ -76,7 +76,6 @@ class LivePlotter(object):
 
 
 
-
 def test(args):
 
     logger.debug("Testing...")
