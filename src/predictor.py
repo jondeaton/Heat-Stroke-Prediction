@@ -41,7 +41,7 @@ class HeatStrokePredictor(object):
         # Wet Bulb Globe Temperature
         self.wbgt_predictor = None
 
-        # Use prefiltered data?
+        # Use prefiltered data or re-impute the literature data
         self.use_prefiltered = False
 
         logger.debug("Initializing data reader...")
@@ -103,10 +103,9 @@ class HeatStrokePredictor(object):
         # Heat Index Calculation
         # Make sure that humidity is a ratio. NOT A PERCENTAGE
         if humidity > 1 or humidity < 0:
-            logger.error("Make humidity in [0, 1] NOT PERCENTAGE.")
-            throw ValueError
+            raise ValueError("Humidity: %f is not in range [0, 1]. Don't use percentages")
         temp = meteocalc.Temp(temperature, 'c')
-        heat_index = meteocalc.heat_index(temperature=temp, humidity=100 * humidity)
+        heat_index = meteocalc.heat_index(temperature=temp, humidity= 100 * humidity) # Stupid meteocalc likes percentages
         # Wikipedia: Exposure to full sunshine can increase heat index values by up to 8 °C (14 °F)[7]
         # Heat Index on the website of the Pueblo, CO United States National Weather Service.
         # Link: http://web.archive.org/web/20110629041320/http://www.crh.noaa.gov/pub/heat.php
@@ -191,26 +190,14 @@ class HeatStrokePredictor(object):
 
         return risk
 
-    def fill_current_attributes(self, user_attributes, verbose=True):
-        temperature = user_attributes['Environmental temperature (C)']
-        humidity = user_attributes['Relative Humidity']
-        sun = user_attributes['Exposure to sun']
-        temperature = meteocalc.Temp(temperature, 'c')
-        heat_index = self.calculate_heat_index(humidity, temperature, sun=sun)
-        user_attributes.set_value("Heat Index (HI)", heat_index.c)
-        if verbose: logger.info("Heat Index: %.3f C" % heat_index.c)
+    def _fill_current_attributes(self, user_attributes, verbose=True):
+        # This function takes a pandas Series meant to represent the current user attributes
+        # and fills it with values that may be missing from it so that it can be fed into the
+        # Logistic Regression
 
-        most_recent_CT_time = max(self.core_temp_series.keys())
-        estimate_CT = self.core_temp_series[most_recent_CT_time]
-        user_attributes.set_value('Patient temperature', estimate_CT)
-        if verbose: logger.info("Estimated current core temperature: %.3f C" %  estimate_CT)
-
-        # Yeah these are fucked
+        # Yeah these are super fucked
         if np.isnan(user_attributes.Acceleration):
             user_attributes.set_value('Acceleration', 0.5)
-
-        if np.isnan(user_attributes['Skin Temperature']):
-            user_attributes.set_value('Skin Temperature', 100)
 
         if np.isnan(user_attributes['Skin color (flushed/normal=1, pale=0.5, cyatonic=0)']):
             user_attributes.set_value('Skin color (flushed/normal=1, pale=0.5, cyatonic=0)', 0.5)
@@ -239,8 +226,8 @@ class HeatStrokePredictor(object):
             logger.warning("Could not make Heat Index risk estimation")
             HI_prob = None
 
-        # Logistic regression risk
-        user_attributes = self.fill_current_attributes(user_attributes)
+        # Logistic Regression calculation
+        user_attributes = self._fill_current_attributes(user_attributes)
         if np.any(np.isnan(user_attributes.values)):
             logger.warning("Insufficient data for Logistic Regression.")
             LR_prob = None

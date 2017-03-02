@@ -23,6 +23,7 @@ from termcolor import colored
 import user
 import monitor
 import predictor
+import plotter
 
 coloredlogs.install(level='DEBUG')
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ class PredictionHandler(object):
         self.live_plotting = live_plotting
         if live_plotting:
             logger.debug("Instantiating LivePlotter....")
-            self.plotter = plotter.LivePlotter(self)
+            self.plotter = plotter.LivePlotter(self, self.monitor)
             logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
 
         self.current_fields = self.user.series.keys()
@@ -88,6 +89,9 @@ class PredictionHandler(object):
         self.CT_risk_series = pd.Series()
         self.HI_risk_series = pd.Series()
         self.LR_risk_series = pd.Series()
+
+        self.CT_stream = None # will be set by predictor.estimate_core_temperature
+        self.HI_stream = pd.Series() # All of the Heat Index values with associated times
 
         # Set all the output files to the appropriate paths
         self.set_output_files(output_dir, timestamp_files)
@@ -116,8 +120,22 @@ class PredictionHandler(object):
         # For starting the predicont thread
         self.prediciton_thread.stop()
 
+    def start_all_threads(self):
+        # Start all of the threads
+        logger.info("Starting data collection thread...")
+        self.start_data_collection()
+        logger.info("Starting data saving thread...")
+        self.saving_thread.start()
+        logger.info("Starting prediction thread...")
+        self.start_prediction_thread()
+        if self.live_plotting:
+            logger.info("Starting plotting thread (refresh ...")
+            self.plotter.start_plotting(refresh_rate=1)
+
     def stop_all_threads(self, wait=False):
         # This function sends a stop signal to all threads
+        if self.live_plotting:
+            self.plotter.stop_plotting()
         self.stop_prediction_thread()
         self.monitor.stop_data_read()
         self.saving_thread.stop()
@@ -138,12 +156,29 @@ class PredictionHandler(object):
 
             logger.debug("Threads died. Thread count: %d" % threading.activeCount())
 
-    def get_current_attributes(self):
-        # This function gets data from the MonitorUser instantiation and formats it in a way
-        #logger.warning("get_current_attributes not implemented!")
-        user_attributes = self.user.get_user_attributes()
+    def update_user_attributes(self, verbose=True):
+        # This function gets demographic data from the MonitorUser instance
+        # in the form of a pandas Series and then adds fields to this series 
+        # using data form the HeatStrokeMonitor instance so that it represents
+        # the user's current state. This function will also set the core temperature
+        # stream and Heat index stream which are both pandas Series to be updated using
+        # values calcualted by making calls to the HeatStrokePredictor instance.
+        
+        # Get basic demographic data from MonitorUser
+        self.user_attributes = self.user.get_user_attributes()
 
-        # We need to loop through all of the differen data streams coming from the monitor
+        # Set the Core Temperature stream using Heart Rate Stream with prediction
+        self.CT_stream = self.predictor.estimate_core_temperature(self.monitor.HR_stream, 37)
+        # Also add the patient temperature to reflect
+        if self.CT_stream.size == 0:
+            # If there is no heart rate data then bummer
+            current_extimated_CT = np.NAN
+        else:
+            current_extimated_CT = self.CT_stream[max(self.CT_stream.keys())]
+        self.user_attributes.set_value('Patient temperature', current_extimated_CT)
+        if verbose: logger.info("Estimated current core temperature: %.3f C" %  current_extimated_CT)
+
+        # We need to loop through all of the different data streams coming from the monitor
         # and store the most recent value in ihe user's attributes
         # This dictionary provides a mapping from user attribute field name to
         # the relevant field
@@ -154,27 +189,41 @@ class PredictionHandler(object):
         'Skin Temperature': self.monitor.STemp_stream,
         'Sweating': self.monitor.GSR_stream,
         'Acceleration': self.monitor.Acc_stream,
-        'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': self.monitor.Skin_stream
-        }
+        'Skin color (flushed/normal=1, pale=0.5, cyatonic=0)': self.monitor.Skin_stream}
 
         # Loop through all the streams and add the most recent value to user_attributes
         for field in stream_dict:
             stream = stream_dict[field]
             value = stream.iloc[-1] if stream.size else np.NAN
             if value is np.NAN: logger.error("No data for: \"%s\"" % field)
-            user_attributes.set_value(field, value)
+            self.user_attributes.set_value(field, value)
 
-        user_attributes.set_value('Exposure to sun', 0)
+        # Add current Heat Index value calculated from the most recent environmental temperature
+        # and humidity measurements. Time of Heat Index set to be the time of temperature measurement
+        temp_time = max(self.monitor.ETemp_stream.keys())
+        current_temp = self.user_attributes['Environmental temperature (C)']
+        current_humidity = self.user_attributes['Relative Humidity']
+        current_heat_index = self.predictor.calculate_heat_index(current_humidity, current_temp).c
+        self.HI_stream.set_value(temp_time, current_heat_index)
+        self.user_attributes.set_value('Heat Index (HI)', current_heat_index)
+        if verbose: logger.info("Heat Index: %.3f C" % current_heat_index)
 
-        return user_attributes
+        # Set skin temperature to be the average between core temp and environmental
+        self.user_attributes.set_value('Skin Temperature', np.mean([current_temp, current_extimated_CT]))
+
+        # We don't have any sensor for this so we're just gonna set it to zero always... yeah caus science
+        self.user_attributes.set_value('Exposure to sun', 0)
 
     def make_predictions(self, verbose=True):
         # This funciton makes a Heat Stroke risk prediction        
 
-        user_attributes = self.get_current_attributes()
+        # Updates self.user_attributes to have all of the necessary  things to feed to the predictor
+        self.update_user_attributes()
 
-        # Calculate the risk!!!
-        CT_prob, HI_prob, LR_prob = self.predictor.make_predictions(user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream)
+        # Calculate all risks
+        CT_prob, HI_prob, LR_prob = self.predictor.make_predictions(self.user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream)
+        
+        # Combine the risks into one comprehensive value
         risk = self.predictor.combine_predictions(CT_prob, HI_prob, LR_prob)
 
         # Record the time that the risk assessment was made, and save it to the series
@@ -186,9 +235,9 @@ class PredictionHandler(object):
 
         # Log the risk to terminal if verbose
         if verbose:
-            logger.info(colored("CT Risk: %s  %s" % (progress_bar(CT_prob), CT_prob), "yellow"))
-            logger.info(colored("HI Risk: %s  %s" % (progress_bar(HI_prob), HI_prob), "yellow"))
-            logger.info(colored("LR Risk: %s  %s" % (progress_bar(LR_prob), LR_prob), "yellow"))
+            logger.info(colored("Core Temp Risk: %s  %s" % (progress_bar(CT_prob), CT_prob), "yellow"))
+            logger.info(colored("Hest Indx Risk: %s  %s" % (progress_bar(HI_prob), HI_prob), "yellow"))
+            logger.info(colored("Log. Reg. Risk: %s  %s" % (progress_bar(LR_prob), LR_prob), "yellow"))
             bar = progress_bar(risk, filler=":fire: ", length=10)
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
 
@@ -259,7 +308,22 @@ def simulation(args):
     # This is for doing a simulation with data saved to file rather than read from the bean
     logger.error("Data simulation not yet implemented! Run without -S flag")
 
+def pause_main_thread():
+    # This function pauses this thread until the user tells the program to abort using the keyboard
+    try:
+        logger.warning("Pausing main thread ('q' or control-C to abort)...")
+        # This makes is so that the user can press any key on the keyboard
+        # but it won't exit unless they KeyboardInterrupt the process
+        while True:
+            user_input = input("")
+            if user_input == 'q':
+                logger.warning("Exit signal recieved. Terminating threads...")
+                break
+    except KeyboardInterrupt:
+        logger.warning("Keyboard Interrupt. Terminating threads...")
+
 def run(args):
+    # This function is the main function of this program that runs the real-time Heat Stroke risk process
     logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
     logger.debug("Instantiating prediciton handler...")
     handler = PredictionHandler(users_XML= args.users_XML, username=args.user, 
@@ -274,36 +338,22 @@ def run(args):
     # Create all of the threads that the handler needs
     handler.initialize_threads(test=args.no_bean or args.test)
 
+    # Start all of the threads    
+    handler.start_all_threads()
     start_time = time.time()
 
-    # Start all of the threads
-    logger.info("Starting data collection thread...")
-    handler.start_data_collection()
-    logger.info("Starting data saving thread...")
-    handler.saving_thread.start()
-    logger.info("Starting prediction thread...")
-    handler.start_prediction_thread()
-
-    try:
-        logger.warning("Pausing main thread ('q' or control-C to abort)...")
-        # This makes is so that the user can press any key on the keyboard
-        # but it won't exit unless they KeyboardInterrupt the process
-        while True:
-            user_input = input("")
-            if user_input == 'q':
-                logger.warning("Exit signal recieved. Terminating threads...")
-                break
-    except KeyboardInterrupt:
-        logger.warning("Keyboard Interrupt. Terminating threads...")
+    # Pauser until the user quits the program
+    pause_main_thread()
 
     # Save the data
     handler.save_all_data()
     # Stop the threads
     handler.stop_all_threads(wait=True)
     # Indicate that the test has finished
-    logger.info(emoji.emojize("Test complete. :heavy_check_mark:"))
+    logger.info(emoji.emojize("Test complete. (%.1f sec) :heavy_check_mark:" % (time.time() - start_time)))
 
 def main():
+    # This function is basically just for parsing command line arguments and deciding what to do
     import argparse
     script_description = "This script is the front-end handler of the Heat Stroke Monitor system."
     parser = argparse.ArgumentParser(description=script_description)

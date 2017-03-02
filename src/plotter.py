@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 __author__ = "Jon Deaton"
 __email__ = "jdeaton@stanford.edu"
 
-
 class LoopingThread(threading.Timer):
     # This is a thread that performs some action
     # repeatedly at a given interval. Since this
@@ -32,52 +31,70 @@ class LoopingThread(threading.Timer):
         self.callback = callback
         self.wait_time = wait_time
         self.sleep_callback = time.sleep if sleep_callback is None else sleep_callback
-
-        self.loop_wait = 1 if wait_time > 1 else wait_time
-        self.num_loops = int(wait_time / self.loop_wait)
-        self._is_running = True
+        self._is_running = False
 
     def run(self):
+        self._is_running = True
         while self._is_running:
-            for _ in range(self.num_loops):
-                # Check to make sure the thread should still be running
-                if not self._is_running: return
-                self.sleep_callback(self.loop_wait)
+            #self.sleep_callback(self.wait_time)
+            time.sleep(self.wait_time)
             self.callback()
 
     def stop(self):
         # This stops the thread
         self._is_running = False
 
-
 class LivePlotter(object):
 
-    def __init__(self, handler, refresh_rate=1):
+    def __init__(self, handler, monitor, refresh_rate=1):
 
         self.handler = handler
-
+        self.monitor = monitor
         self.looping_thread = LoopingThread(self.update_plot, pow(refresh_rate, -1), sleep_callback=plt.pause)
 
         self.plot_drawn = False
         self.draw_plot()
         self.plot_drawn = True
 
+    # Thread control
+    def start_plotting(self, refresh_rate=None):
+        # Open the plotting window and start the plot updater thread
+
+        # It's a useful feature to be able to adjust this here
+        if refresh_rate is not None:
+            self.looping_thread.wait_time = pow(refresh_rate, -1)
+            
+        plt.show()
+        self.looping_thread.start()
+
+    def stop_plotting(self):
+        plt.close()
+        self.looping_thread.stop()
 
     def draw_plot(self):
-        # Hello?
-        self.fig, ((self.ax1, self.ax2), (self.ax3, self.ax4)) = plt.subplots(2, 2, figsize=(9, 6))
+        # This function just makes a matplotlib figure that will be used to display the live data
+        self.fig, ((self.ax1, self.ax2), (self.ax3, self.ax4)) = plt.subplots(2, 2, figsize=(9, 6), sharex=True)
         plt.ion()
 
+        self.ax1.set_xlabel("time")
+        self.ax2.set_xlabel("time")
+        self.ax3.set_xlabel("time")
+        self.ax4.set_xlabel("time")
+
     def update_plot(self):
-
-        ax1.plot(self.handler.)
-        logger.warning("LivePlotter.update_plot() called... not implemented")
-
-
-
+        # This function update the plot and should be called periodically by a LoopingThread so that 
+        # the plot appears to be a live feed of the data coming in 
+        self.ax1.plot(self.monitor.ETemp_stream.keys(), self.monitor.ETemp_stream.values)
+        #ax1.plot(self.handler.)
+        #logger.info("LivePlotter.update_plot() called...")
+        self.ax4.plot(self.handler.risk_series.keys(), self.handler.risk_series.values, 'r-')
+        self.ax4.plot(self.handler.CT_risk_series.keys(), self.handler.CT_risk_series.values, 'k-')
+        self.ax4.plot(self.handler.HI_risk_series.keys(), self.handler.HI_risk_series.values, 'b-')
+        self.ax4.plot(self.handler.LR_risk_series.keys(), self.handler.LR_risk_series.values, 'm-')
+        plt.draw()
 
 def test(args):
-
+    # This is a test of live plotting
     logger.debug("Testing...")
     N = 100
     f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(9, 6))
@@ -94,7 +111,6 @@ def test(args):
     ax4.set_xlabel("x4")
     ax4.set_ylabel("y4")
     
-
     plt.ion()
 
     try:
@@ -102,10 +118,6 @@ def test(args):
         y = np.random.random()
         for ax in (ax1, ax2, ax3, ax4):
             ax.scatter(i, y)
-        
-        # plt.draw()
-        # plt.show()
-        # time.sleep(0.3)
         plt.pause(0.3)
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupted... quitting")
@@ -145,6 +157,8 @@ def main():
 
     if args.test:
         test(args)
+    else:
+        logger.info("No action specified. Run this script with the --test flag to do a real-time plotting test")
 
 
 if __name__ == '__main__':

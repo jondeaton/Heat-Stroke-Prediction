@@ -18,7 +18,6 @@ import emoji
 import numpy as np
 import pandas as pd
 
-
 coloredlogs.install(level='INFO')
 logger = logging.getLogger(__name__)
 
@@ -105,22 +104,24 @@ class TestSerialReadThread(threading.Timer):
 class HeatStrokeMonitor(object):
 
     def __init__(self, port=None, open_port=False):
-        self.init_time = time.time
+        self.init_time = time.time()
         self.data_save_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "monitor_data.csv")
 
         if port is None:
+            # These are the default serial ports that will be attempted to be opened in this order
             self.serial_ports = ['/dev/cu.LightBlue-Bean',
                                  '/tmp/tty.LightBlue-Bean', 
                                  '/tmp/cu.LightBlue-Bean']
         else:
+            # If a particular port was specified, then only try opening that port
             self.serial_ports = [port]
 
-        # Class that is used to instantiate a threat that
+        # Class that is used to instantiate a thread that
         # will continuously read from the serial port
         self.threading_class = None
 
         self.ser = None # The serial port
-        self.bytes_read = 0 # The
+        self.bytes_read = 0 # The number of byts read
         if open_port:
             self.open_port()
         
@@ -310,6 +311,7 @@ def main():
     if args.test:
         test(args)
     else:
+        # LOL
         test(args)
 
 if __name__ == "__main__":
