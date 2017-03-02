@@ -77,7 +77,7 @@ class TestSerialReadThread(threading.Timer):
         # These are some fake values to use for testing
         self.test_funcs = {
         'HR': lambda t: 100 + (180-100)*(t - self.time_started) / (0.75 * 60 * 60),
-        'ET': lambda t: 45 + 5 * np.random.random(),
+        'ET': lambda t: 38 + 5 * np.random.random(),
         'EH': lambda t: 0.8 + 0.1 * np.random.random(),
         'ST': lambda t: 100 + (180-100)*(t - self.time_started) / (1.2 * 60 * 60),
         'GSR': lambda t: 400,

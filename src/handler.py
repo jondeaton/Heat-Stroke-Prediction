@@ -75,6 +75,7 @@ class PredictionHandler(object):
 
         self.live_plotting = live_plotting
         if live_plotting:
+            self.plot_refresh_rate = 4 # hz
             logger.debug("Instantiating LivePlotter....")
             self.plotter = plotter.LivePlotter(self, self.monitor)
             logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
@@ -129,8 +130,8 @@ class PredictionHandler(object):
         logger.info("Starting prediction thread...")
         self.start_prediction_thread()
         if self.live_plotting:
-            logger.info("Starting plotting thread (refresh ...")
-            self.plotter.start_plotting(refresh_rate=1)
+            logger.info("Starting plotting thread (refresh rate: %.1f)..." % self.plot_refresh_rate)
+            self.plotter.start_plotting(refresh_rate=self.plot_refresh_rate)
 
     def stop_all_threads(self, wait=False):
         # This function sends a stop signal to all threads
@@ -200,13 +201,14 @@ class PredictionHandler(object):
 
         # Add current Heat Index value calculated from the most recent environmental temperature
         # and humidity measurements. Time of Heat Index set to be the time of temperature measurement
-        temp_time = max(self.monitor.ETemp_stream.keys())
-        current_temp = self.user_attributes['Environmental temperature (C)']
-        current_humidity = self.user_attributes['Relative Humidity']
-        current_heat_index = self.predictor.calculate_heat_index(current_humidity, current_temp).c
-        self.HI_stream.set_value(temp_time, current_heat_index)
-        self.user_attributes.set_value('Heat Index (HI)', current_heat_index)
-        if verbose: logger.info("Heat Index: %.3f C" % current_heat_index)
+        if self.monitor.ETemp_stream.size > 0:
+            temp_time = max(self.monitor.ETemp_stream.keys())
+            current_temp = self.user_attributes['Environmental temperature (C)']
+            current_humidity = self.user_attributes['Relative Humidity']
+            current_heat_index = self.predictor.calculate_heat_index(current_humidity, current_temp).c
+            self.HI_stream.set_value(temp_time, current_heat_index)
+            self.user_attributes.set_value('Heat Index (HI)', current_heat_index)
+            if verbose: logger.info("Heat Index: %.3f C" % current_heat_index)
 
         # Set skin temperature to be the average between core temp and environmental
         self.user_attributes.set_value('Skin Temperature', np.mean([current_temp, current_extimated_CT]))
@@ -311,7 +313,7 @@ def simulation(args):
 def pause_main_thread():
     # This function pauses this thread until the user tells the program to abort using the keyboard
     try:
-        logger.warning("Pausing main thread ('q' or control-C to abort)...")
+        logger.warning("Pausing main thread ('q' + Enter to abort)...")
         # This makes is so that the user can press any key on the keyboard
         # but it won't exit unless they KeyboardInterrupt the process
         while True:

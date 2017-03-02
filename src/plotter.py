@@ -52,6 +52,8 @@ class LivePlotter(object):
         self.monitor = monitor
         self.looping_thread = LoopingThread(self.update_plot, pow(refresh_rate, -1), sleep_callback=plt.pause)
 
+        self.start_time = 0
+
         self.plot_drawn = False
         self.draw_plot()
         self.plot_drawn = True
@@ -63,11 +65,13 @@ class LivePlotter(object):
         # It's a useful feature to be able to adjust this here
         if refresh_rate is not None:
             self.looping_thread.wait_time = pow(refresh_rate, -1)
-            
+
+        self.start_time = time.time()
         plt.show()
         self.looping_thread.start()
 
     def stop_plotting(self):
+        # Close the window and stop the refresh thread
         plt.close()
         self.looping_thread.stop()
 
@@ -81,16 +85,40 @@ class LivePlotter(object):
         self.ax3.set_xlabel("time")
         self.ax4.set_xlabel("time")
 
+        self.ax1.set_title("Room/Core Temp")
+        self.ax1.set_ylabel("Temperature (C)")
+        self.ax1.set_ylim((30, 60))
+        self.ax1.grid(True)
+
+        self.ax2.set_ylabel("")
+        self.ax2.grid(True)
+
+
+        self.ax3.grid(True)
+
+        self.ax4.set_ylim((0, 1))
+        self.ax4.grid(True)
+        self.ax4.set_ylabel("Risk")
+
+
     def update_plot(self):
         # This function update the plot and should be called periodically by a LoopingThread so that 
         # the plot appears to be a live feed of the data coming in 
-        self.ax1.plot(self.monitor.ETemp_stream.keys(), self.monitor.ETemp_stream.values)
-        #ax1.plot(self.handler.)
-        #logger.info("LivePlotter.update_plot() called...")
-        self.ax4.plot(self.handler.risk_series.keys(), self.handler.risk_series.values, 'r-')
-        self.ax4.plot(self.handler.CT_risk_series.keys(), self.handler.CT_risk_series.values, 'k-')
-        self.ax4.plot(self.handler.HI_risk_series.keys(), self.handler.HI_risk_series.values, 'b-')
-        self.ax4.plot(self.handler.LR_risk_series.keys(), self.handler.LR_risk_series.values, 'm-')
+
+        # Updating plot 1 (Temperature)
+        self.ax1.plot(np.array(self.monitor.ETemp_stream.keys()) - self.start_time, self.monitor.ETemp_stream.values, 'r-o')
+        if self.handler.CT_stream is not None:
+            self.ax1.plot(np.array(self.handler.CT_stream.keys()) - self.start_time, self.handler.CT_stream.values - self.start_time, 'k-o')
+
+
+        # Updating plot 2 (Risk)
+        colors = ('r', 'k', 'b', 'm')
+        risk_seties_set = (self.handler.risk_series, self.handler.CT_risk_series, self.handler.HI_risk_series, self.handler.LR_risk_series)
+        for color, series in zip(colors, risk_seties_set):
+            if series is not None and series.size > 0:
+                self.ax4.plot(np.array(series.keys()) - self.start_time, series.values, '%s-o' % color)
+
+        # Finally draw it
         plt.draw()
 
 def test(args):
