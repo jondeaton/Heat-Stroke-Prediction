@@ -2,10 +2,13 @@
 '''
 plotter.py
 
-This script implements the LivePlotter which is used to make real-time updated plots in MatPlotLib
+This script implements the LivePlotter which is used to make real-time updated plots in MatplotLib
 '''
+
+import os
 import time
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import threading
 
@@ -24,20 +27,18 @@ __email__ = "jdeaton@stanford.edu"
 class LoopingThread(threading.Timer):
     # This is a thread that performs some action
     # repeatedly at a given interval. Since this
-    # interval may be long, this 
+    # interval may be long, this
 
-    def __init__(self, callback, wait_time, sleep_callback=None):
+    def __init__(self, callback, interval):
         threading.Thread.__init__(self)
         self.callback = callback
-        self.wait_time = wait_time
-        self.sleep_callback = time.sleep if sleep_callback is None else sleep_callback
+        self.interval = interval
         self._is_running = False
 
     def run(self):
         self._is_running = True
         while self._is_running:
-            #self.sleep_callback(self.wait_time)
-            time.sleep(self.wait_time)
+            time.sleep(self.interval)
             self.callback()
 
     def stop(self):
@@ -45,29 +46,28 @@ class LoopingThread(threading.Timer):
         self._is_running = False
 
 class LivePlotter(object):
+    # Class used to make live plots
 
-    def __init__(self, handler, monitor, refresh_rate=1):
+    def __init__(self, data_file, output_directory=None, interval=15, show=False):
 
-        self.handler = handler
-        self.monitor = monitor
-        self.looping_thread = LoopingThread(self.update_plot, pow(refresh_rate, -1), sleep_callback=plt.pause)
+        # Input / Output
+        self.data_file = data_file
+        out_dir = output_directory if output_directory is not None else "."
+        self.set_output_directory(out_dir)
 
-        self.start_time = 0
-
-        self.plot_drawn = False
-        self.draw_plot()
-        self.plot_drawn = True
+        self.interval = interval
+        self.show_plots = show
+        self.looping_thread = LoopingThread(self.update_plot, self.interval)
 
     # Thread control
-    def start_plotting(self, refresh_rate=None):
-        # Open the plotting window and start the plot updater thread
+    def start_plotting(self, interval=None):
 
-        # It's a useful feature to be able to adjust this here
-        if refresh_rate is not None:
-            self.looping_thread.wait_time = pow(refresh_rate, -1)
+        # It's a useful feature to be able to adjust interval here
+        if interval is not None:
+            self.looping_thread.wait_time = interval
+            self.interval = interval
 
         self.start_time = time.time()
-        plt.show()
         self.looping_thread.start()
 
     def stop_plotting(self):
@@ -75,98 +75,126 @@ class LivePlotter(object):
         plt.close()
         self.looping_thread.stop()
 
-    def draw_plot(self):
-        # This function just makes a matplotlib figure that will be used to display the live data
-        self.fig, ((self.ax1, self.ax2), (self.ax3, self.ax4)) = plt.subplots(2, 2, figsize=(9, 6), sharex=True)
-        plt.ion()
+    def set_output_directory(self, new_output_directory):
+        # Use this to change the output directory
+        self.output_directory = new_output_directory
+        self.set_output_files()
 
-        self.ax1.set_xlabel("time")
-        self.ax2.set_xlabel("time")
-        self.ax3.set_xlabel("time")
-        self.ax4.set_xlabel("time")
+    def set_output_files(self):
+        # sets all the names of the plots
+        self.temperature_plot_file = os.path.join(self.output_directory, "temp_data.svg")
+        self.risk_plot_file = os.path.join(self.output_directory, "risk_data.svg")
+        self.heart_rate_plot_file = os.path.join(self.output_directory, "heart_rate_data.svg")
+        self.GSR_plot_file = os.path.join(self.output_directory, "GSR_data.svg")
 
-        self.ax1.set_title("Room/Core Temp")
-        self.ax1.set_ylabel("Temperature (C)")
-        self.ax1.set_ylim((30, 60))
-        self.ax1.grid(True)
+    def plot_temperature(self, figure, axis, save_to=None):
+        # Makes a temperature plot in a particular figure and axis
+        start_time = min(self.df['time ET'])
+        axis.plot(self.df['time ET'] - start_time, self.df.ET, 'r-', label="Environmental Temperature")
+        axis.plot(self.df['time est CT'] - start_time, self.df['est CT'], 'k-', label="Estimated CT")
+        axis.set_title("Room/Core Temp")
+        axis.set_ylabel("Temperature (C)")
+        axis.set_xlabel("time")
+        axis.legend()
+        axis.set_ylim((30, 60))
+        axis.grid(True)
+        if save_to is not None:
+            figure.savefig(save_to)
 
-        self.ax2.set_ylabel("")
-        self.ax2.grid(True)
+    def plot_heart_rate(self, figure, axis, save_to=None):
+        start_time = min(self.df['time HR'])
+        axis.plot(self.df['time HR'] - start_time, self.df.HR, '-r', label="Heart Rate")
+        axis.set_title("Heart Rate")
+        axis.set_ylabel("Beats Per Minute")
+        axis.set_xlabel("Time")
+        axis.legend()
+        axis.grid(True)
+        if save_to is not None:
+            figure.savefig(save_to)
 
+    def plot_GSR(self, figure, axis, save_to=None):
+        start_time = min(self.df['time GSR'])
+        axis.plot(self.df['time GSR'] - start_time, self.df.GSR, 'ob', label="GSR")
+        axis.set_title("Galvanic Skin Response")
+        axis.set_ylabel("Arbitrary")
+        axis.set_xlabel("Time")
+        axis.legend()
+        axis.grid(True)
+        if save_to is not None:
+            figure.savefig(save_to)
 
-        self.ax3.grid(True)
+    def plot_risk(self, figure, axis, save_to=None):
+        # Makes a temperature plot in a particular figure and axis
 
-        self.ax4.set_ylim((0, 1))
-        self.ax4.grid(True)
-        self.ax4.set_ylabel("Risk")
+        start_time = min(self.df['time Risk'])
+        axis.plot(self.df['time Risk'] - start_time, self.df.Risk, '-r', label="Combined Risk")
+        axis.plot(self.df['time HI Risk'] - start_time, self.df['HI Risk'], '-k', label="HI Risk")
+        axis.plot(self.df['time CT Risk'] - start_time, self.df['CT Risk'], '-b', label="CT Risk")
+        axis.plot(self.df['time LR Risk'] - start_time, self.df['LR Risk'], '-m', label="LR Risk")
 
+        axis.set_title("Heat Stroke Risk")
+        axis.set_ylabel("Risk (Probability)")
+        axis.set_xlabel("Time")
+        axis.legend()
+        axis.set_ylim((0, 1))
+        axis.grid(True)
+        if save_to is not None:
+            figure.savefig(save_to)
 
     def update_plot(self):
-        # This function update the plot and should be called periodically by a LoopingThread so that 
-        # the plot appears to be a live feed of the data coming in 
+        # This function update the plot and should be called periodically by a LoopingThread so that
+        # the plot appears to be a live feed of the data coming in
 
-        # Updating plot 1 (Temperature)
-        self.ax1.plot(np.array(self.monitor.ETemp_stream.keys()) - self.start_time, self.monitor.ETemp_stream.values, 'r-o')
-        if self.handler.CT_stream is not None:
-            self.ax1.plot(np.array(self.handler.CT_stream.keys()) - self.start_time, self.handler.CT_stream.values - self.start_time, 'k-o')
+        self.df = pd.read_csv(self.data_file)
 
+        # Make the combined figure
+        combined_fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(9, 6), sharex=True)
 
-        # Updating plot 2 (Risk)
-        colors = ('r', 'k', 'b', 'm')
-        risk_seties_set = (self.handler.risk_series, self.handler.CT_risk_series, self.handler.HI_risk_series, self.handler.LR_risk_series)
-        for color, series in zip(colors, risk_seties_set):
-            if series is not None and series.size > 0:
-                self.ax4.plot(np.array(series.keys()) - self.start_time, series.values, '%s-o' % color)
+        # Plot 1: Temperature
+        temp_fig, temp_ax = plt.subplots(1, 1, figsize=(9, 6))
+        self.plot_temperature(combined_fig, ax1)
+        self.plot_temperature(temp_fig, temp_ax, save_to=self.temperature_plot_file)
+
+        # Plot 2: Risk
+        risk_fig, risk_ax = plt.subplots(1, 1, figsize=(9, 6))
+        self.plot_risk(combined_fig, ax2)
+        self.plot_risk(risk_fig, risk_ax, save_to=self.risk_plot_file)
+
+        # Plot 3: Heart Rate
+        HR_fig, HR_ax = plt.subplots(1, 1, figsize=(9, 6))
+        self.plot_heart_rate(combined_fig, ax3)
+        self.plot_heart_rate(HR_fig, HR_ax, save_to=self.heart_rate_plot_file)
+
+        # Plot 4: GSR
+        GSR_fig, GSR_ax = plt.subplots(1, 1, figsize=(9, 6))
+        self.plot_GSR(combined_fig, ax4)
+        self.plot_GSR(GSR_fig, GSR_ax, save_to=self.GSR_plot_file)
 
         # Finally draw it
-        plt.draw()
+        if self.show_plots:
+            plt.show()
 
-def test(args):
-    # This is a test of live plotting
-    logger.debug("Testing...")
-    N = 100
-    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(9, 6))
+def run(args):
 
-    ax1.set_xlabel("x1")
-    ax1.set_ylabel("y1")
+    plotter = LivePlotter(args.input, output_directory=args.output)
+    logger.info("Making plots using: %s ..." % os.path.basename(args.input))
+    plotter.update_plot()
+    logger.info("Saved plots to: %s" % plotter.output_directory)
 
-    ax2.set_xlabel("x2")
-    ax2.set_ylabel("y2")
-    
-    ax3.set_xlabel("x3")
-    ax3.set_ylabel("y3")
-    
-    ax4.set_xlabel("x4")
-    ax4.set_ylabel("y4")
-    
-    plt.ion()
-
-    try:
-       for i in range(N):
-        y = np.random.random()
-        for ax in (ax1, ax2, ax3, ax4):
-            ax.scatter(i, y)
-        plt.pause(0.3)
-    except KeyboardInterrupt:
-        logger.warning("Keyboard Interrupted... quitting")
-        exit()
 
 def main():
     import argparse
-    script_description = "This script makes live plots wiith matplotlib"
+    script_description = "This script makes plots of Heat Stroke Data using Matplotlib"
     parser = argparse.ArgumentParser(description=script_description)
 
     input_group = parser.add_argument_group("Inputs")
-    input_group.add_argument('-in', '--input', required=False, help='Input')
+    input_group.add_argument('-in', '--input', required=True, help='Input file with data')
 
     output_group = parser.add_argument_group("Outputs")
-    output_group.add_argument("-out", "--output", required=False, help="Output")
+    output_group.add_argument("-out", "--output", required=False, help="Output directory to save plots in")
 
-    options_group = parser.add_argument_group("Opitons")
-    options_group.add_argument('-test', '--test', action="store_true", help="Implementation testing")
-
-    plotting_group = parser.add_argument_group("Live Plotting")
-    plotting_group.add_argument('-plot', '--live-plotting', dest="live_plotting", action="store_true", help="Display live plots")
+    options_group = parser.add_argument_group("Options")
+    options_group.add_argument('-test', '--test', action="store_true", help="Test this script alone.")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -184,10 +212,9 @@ def main():
         coloredlogs.install(level='WARNING')
 
     if args.test:
-        test(args)
-    else:
-        logger.info("No action specified. Run this script with the --test flag to do a real-time plotting test")
+        logger.warning("The --test flag does nothing.")
 
+    run(args)
 
 if __name__ == '__main__':
     main()

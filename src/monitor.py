@@ -110,7 +110,7 @@ class HeatStrokeMonitor(object):
         if port is None:
             # These are the default serial ports that will be attempted to be opened in this order
             self.serial_ports = ['/dev/cu.LightBlue-Bean',
-                                 '/tmp/tty.LightBlue-Bean', 
+                                 '/tmp/tty.LightBlue-Bean',
                                  '/tmp/cu.LightBlue-Bean']
         else:
             # If a particular port was specified, then only try opening that port

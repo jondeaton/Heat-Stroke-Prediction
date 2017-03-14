@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 '''
-prediction_handler.py
+handler.py
 
-This script implements a class called PredictoinHandler.py which contains a MonitorUser, 
+This script implements a class called PredictoinHandler.py which contains a MonitorUser,
 HeatStrokeMonitor, and HeatStrokePredictor object. Instances of this class instantiate these
 objects and couriers data between them to get and report predictions of heat stroke risk.
 '''
@@ -59,7 +59,7 @@ class LoopingThread(threading.Timer):
 
 class PredictionHandler(object):
 
-    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False, live_plotting=False):
+    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False, live_plotting=False, show_plots=False):
         
         logger.debug("Instantiating MonitorUser...")
         self.user = user.MonitorUser(users_XML=users_XML, load=True, username=username)
@@ -75,9 +75,9 @@ class PredictionHandler(object):
 
         self.live_plotting = live_plotting
         if live_plotting:
-            self.plot_refresh_rate = 4 # hz
             logger.debug("Instantiating LivePlotter....")
             self.plotter = plotter.LivePlotter(self, self.monitor)
+            self.plotter.show = show_plots
             logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
 
         self.current_fields = self.user.series.keys()
@@ -130,8 +130,8 @@ class PredictionHandler(object):
         logger.info("Starting prediction thread...")
         self.start_prediction_thread()
         if self.live_plotting:
-            logger.info("Starting plotting thread (refresh rate: %.1f)..." % self.plot_refresh_rate)
-            self.plotter.start_plotting(refresh_rate=self.plot_refresh_rate)
+            logger.info("Starting plotting thread...")
+            self.plotter.start_plotting()
 
     def stop_all_threads(self, wait=False):
         # This function sends a stop signal to all threads
@@ -312,24 +312,28 @@ def simulation(args):
 
 def pause_main_thread():
     # This function pauses this thread until the user tells the program to abort using the keyboard
+
+    logger.warning("Pausing main thread ('q' + Enter to abort)...")
     try:
-        logger.warning("Pausing main thread ('q' + Enter to abort)...")
-        # This makes is so that the user can press any key on the keyboard
-        # but it won't exit unless they KeyboardInterrupt the process
         while True:
+            # This makes is so that the user can press any key on the keyboard
+            # but it won't exit unless they KeyboardInterrupt the process
             user_input = input("")
             if user_input == 'q':
-                logger.warning("Exit signal recieved. Terminating threads...")
+                logger.warning("Exit signal received. Terminating threads...")
                 break
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt. Terminating threads...")
 
+def simulate(args):
+    logger.error("Simulation not yet implemented!")
+
 def run(args):
     # This function is the main function of this program that runs the real-time Heat Stroke risk process
     logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
-    logger.debug("Instantiating prediciton handler...")
+    logger.debug("Instantiating prediction handler...")
     handler = PredictionHandler(users_XML= args.users_XML, username=args.user, 
-        output_dir=args.output, timestamp_files=args.timestamp_files, live_plotting=args.live_plotting)
+        output_dir=args.output, timestamp_files=args.timestamp_files, live_plotting=args.live_plotting, show_plots=args.show_plots)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
     # Tell the prediction handler whether or not to use prefiltered data or to refilter it
@@ -344,15 +348,20 @@ def run(args):
     handler.start_all_threads()
     start_time = time.time()
 
-    # Pauser until the user quits the program
+    # Pause until the user quits the program
     pause_main_thread()
 
     # Save the data
     handler.save_all_data()
     # Stop the threads
     handler.stop_all_threads(wait=True)
+
     # Indicate that the test has finished
-    logger.info(emoji.emojize("Test complete. (%.1f sec) :heavy_check_mark:" % (time.time() - start_time)))
+    runtime = time.time() - start_time
+    m, s = divmod(runtime, 60)
+    h, m = divmod(m, 60)
+    time_str = "%d:%02d:%02d" % (h, m, s)
+    logger.info(emoji.emojize("Test complete. (Duration: %s) :heavy_check_mark:" % time_str))
 
 def main():
     # This function is basically just for parsing command line arguments and deciding what to do
@@ -381,7 +390,8 @@ def main():
     simulation_group.add_argument('-rt', '--real-time', dest="real_time", action="store_true", help="Simulate in real-time")
 
     plotting_group = parser.add_argument_group("Live Plotting")
-    plotting_group.add_argument('-plot', '--live-plotting', dest="live_plotting", action="store_true", help="Display live plots")
+    plotting_group.add_argument('-plot', '--live-plotting', dest="live_plotting", action="store_true", help="Make plots")
+    plotting_group.add_argument('-show', '--show-plots', dest="show_plots", action="store_true", help="Display plots")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -401,7 +411,8 @@ def main():
     if args.simulate:
         simulate(args)
     else:
-        if args.real_time: logger.warning("-rf (\"--real-time\") flag for use with simulation (-S)")
+        if args.real_time:
+            logger.warning("-rf (\"--real-time\") flag for use with simulation (-S)")
         run(args)
 
 if __name__ == "__main__":
