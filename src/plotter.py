@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import threading
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 import warnings
 import logging
@@ -113,8 +114,17 @@ class LivePlotter(object):
             figure.savefig(save_to)
 
     def plot_GSR(self, figure, axis, save_to=None):
+        # This method makes a plot of GSR data
         start_time = min(self.df['time GSR'])
-        axis.plot(self.df['time GSR'] - start_time, self.df.GSR, 'ob', label="GSR")
+        time_data = self.df['time GSR'] - start_time
+
+        filtered_data, filtered_time = reject_outliers(self.df.GSR, time_data)
+        smoothed_data, smoothed_time = smooth_data(filtered_data, filtered_time)
+
+        axis.scatter(time_data, self.df.GSR, c='b', s=0.5, alpha=0.05)
+        axis.scatter(filtered_time, filtered_data, c='b', s=0.5, label="GSR", alpha=0.75)
+        axis.plot(smoothed_time, smoothed_data, 'k', label="filtered")
+
         axis.set_title("Galvanic Skin Response")
         axis.set_ylabel("Arbitrary")
         axis.set_xlabel("Time")
@@ -152,35 +162,59 @@ class LivePlotter(object):
 
         # Plot 1: Temperature
         temp_fig, temp_ax = plt.subplots(1, 1, figsize=(9, 6))
-        self.plot_temperature(combined_fig, ax1)
         self.plot_temperature(temp_fig, temp_ax, save_to=self.temperature_plot_file)
+        plt.close()
 
         # Plot 2: Risk
         risk_fig, risk_ax = plt.subplots(1, 1, figsize=(9, 6))
-        self.plot_risk(combined_fig, ax2)
         self.plot_risk(risk_fig, risk_ax, save_to=self.risk_plot_file)
+        plt.close()
 
         # Plot 3: Heart Rate
         HR_fig, HR_ax = plt.subplots(1, 1, figsize=(9, 6))
-        self.plot_heart_rate(combined_fig, ax3)
         self.plot_heart_rate(HR_fig, HR_ax, save_to=self.heart_rate_plot_file)
+        plt.close()
 
         # Plot 4: GSR
         GSR_fig, GSR_ax = plt.subplots(1, 1, figsize=(9, 6))
-        self.plot_GSR(combined_fig, ax4)
         self.plot_GSR(GSR_fig, GSR_ax, save_to=self.GSR_plot_file)
+        plt.close()
 
-        # Finally draw it
+        # Combined Plot
+        self.plot_temperature(combined_fig, ax1)
+        self.plot_risk(combined_fig, ax2)
+        self.plot_heart_rate(combined_fig, ax3)
+        self.plot_GSR(combined_fig, ax4)
+
+
+        # Finally show it!
         if self.show_plots:
+            logger.info("Showing plot...")
             plt.show()
+
+def smooth_data(y, x):
+    filtered = lowess(y, x, is_sorted=True, frac=0.025, it=0)
+    smooth_x = filtered[:, 0]
+    smooth_y = filtered[:, 1]
+    return (smooth_y, smooth_x)
+
+def reject_outliers(sr, time_data, iq_range=0.4):
+    pcnt = (1 - iq_range) / 2
+    qlow, median, qhigh = sr.dropna().quantile([pcnt, 0.50, 1-pcnt])
+    iqr = qhigh - qlow
+    where = (sr - median).abs() <= iqr
+    return (sr[where], time_data[where])
 
 def run(args):
 
-    plotter = LivePlotter(args.input, output_directory=args.output)
+    if args.output is not None and not os.path.isdir(args.output):
+        logger.info("Directory: %s did not exist. Creating..." % args.output)
+        os.mkdir(args.output)
+
+    plotter = LivePlotter(args.input, output_directory=args.output, show=args.show)
     logger.info("Making plots using: %s ..." % os.path.basename(args.input))
     plotter.update_plot()
     logger.info("Saved plots to: %s" % plotter.output_directory)
-
 
 def main():
     import argparse
@@ -194,7 +228,8 @@ def main():
     output_group.add_argument("-out", "--output", required=False, help="Output directory to save plots in")
 
     options_group = parser.add_argument_group("Options")
-    options_group.add_argument('-test', '--test', action="store_true", help="Test this script alone.")
+    options_group.add_argument('-test', '--test', action="store_true", help="This does nothing at the moment")
+    options_group.add_argument('-s', '--show', action="store_true", help="Show plots on screen.")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
