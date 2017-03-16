@@ -60,7 +60,10 @@ class LoopingThread(threading.Timer):
 class PredictionHandler(object):
 
     def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False, live_plotting=False, show_plots=False):
-        
+
+        # Set all the output files to the appropriate paths
+        self.set_output_files(output_dir, timestamp_files)
+
         logger.debug("Instantiating MonitorUser...")
         self.user = user.MonitorUser(users_XML=users_XML, load=True, username=username)
         logger.info(emoji.emojize("MonitorUser name: %s %s" % (self.user.name, self.user.emoji)))
@@ -76,7 +79,7 @@ class PredictionHandler(object):
         self.live_plotting = live_plotting
         if live_plotting:
             logger.debug("Instantiating LivePlotter....")
-            self.plotter = plotter.LivePlotter(self, self.monitor)
+            self.plotter = plotter.LivePlotter(self.data_save_file, output_directory=self.output_dir, show=show_plots)
             self.plotter.show = show_plots
             logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
 
@@ -94,8 +97,6 @@ class PredictionHandler(object):
         self.CT_stream = None # will be set by predictor.estimate_core_temperature
         self.HI_stream = pd.Series() # All of the Heat Index values with associated times
 
-        # Set all the output files to the appropriate paths
-        self.set_output_files(output_dir, timestamp_files)
 
     # Thread control
     def initialize_threads(self, test=False):

@@ -30,20 +30,25 @@ class LoopingThread(threading.Timer):
     # repeatedly at a given interval. Since this
     # interval may be long, this
 
-    def __init__(self, callback, interval):
+    def __init__(self, callback, wait_time):
         threading.Thread.__init__(self)
         self.callback = callback
-        self.interval = interval
-        self._is_running = False
+        self.wait_time = wait_time
+
+        self.loop_wait = 1 if wait_time > 1 else wait_time
+        self.num_loops = int(wait_time / self.loop_wait)
+
+        self._is_running = True
 
     def run(self):
-        self._is_running = True
         while self._is_running:
-            time.sleep(self.interval)
+            for _ in range(self.num_loops):
+                # Check to make sure the thread should still be running
+                if not self._is_running: return
+                time.sleep(self.loop_wait)
             self.callback()
 
     def stop(self):
-        # This stops the thread
         self._is_running = False
 
 class LivePlotter(object):
@@ -87,6 +92,7 @@ class LivePlotter(object):
         self.risk_plot_file = os.path.join(self.output_directory, "risk_data.svg")
         self.heart_rate_plot_file = os.path.join(self.output_directory, "heart_rate_data.svg")
         self.GSR_plot_file = os.path.join(self.output_directory, "GSR_data.svg")
+        self.combined_file = os.path.join(self.output_directory, "combined_data.svg")
 
     def plot_temperature(self, figure, axis, save_to=None):
         # Makes a temperature plot in a particular figure and axis
@@ -185,12 +191,12 @@ class LivePlotter(object):
         self.plot_risk(combined_fig, ax2)
         self.plot_heart_rate(combined_fig, ax3)
         self.plot_GSR(combined_fig, ax4)
-
+        plt.savefig(self.combined_file)
 
         # Finally show it!
         if self.show_plots:
-            logger.info("Showing plot...")
-            plt.show()
+            os.system("open %s" % self.combined_file)
+            logger.info("Opening plot...")
 
 def smooth_data(y, x):
     filtered = lowess(y, x, is_sorted=True, frac=0.025, it=0)
