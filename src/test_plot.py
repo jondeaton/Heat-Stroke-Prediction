@@ -72,8 +72,6 @@ def make_plot2(data_file, output, show=False):
     hr_time = df["Time (min)"]
     HR = df["HR (bpm)"]
 
-    
-
     logger.info("Making estimation plot...")
 
     win = signal.hann(300)
