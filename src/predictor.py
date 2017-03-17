@@ -3,14 +3,14 @@
 predictor.py
 
 This script implements the HeatStrokePredictor class, which implements several 
-heat stroke predictoin algorithms. Objects of this class contain a HeatStrokeDataFiller
-object which is used to revrieve patient data that is used for a logistic regression model.
+heat stroke prediction algorithms. Objects of this class contain a HeatStrokeDataFiller
+object which is used to retrieve patient data that is used for a logistic regression model.
 '''
 
 import os
 import warnings
 import logging
-import meteocalc # For heaola[t index calculation
+import meteocalc # For Heat Index calculation
 
 # My modules
 import user
@@ -63,19 +63,23 @@ class HeatStrokePredictor(object):
         self.fit_log_reg_classifier()
         
     def load_data_into_reader(self):
+        # This function either loads the data from a previous file or re-imputes the data
         if self.use_prefiltered:
             self.reader.read_prefiltered_data()
         else:
             self.reader.read_and_filter_data()
 
     def fit_log_reg_classifier(self):
+        # Setup the Logistic Regression classifier using the data in reader.df
+
+        # If we haven't already loaded the data make sure that we've done that
         if self.reader.df is None:
             self.load_data_into_reader()
 
         y = np.array(self.reader.df[self.outcome_field])
         X = self.reader.df.drop(self.outcome_field, axis=1)
         if not self.use_all_fields:
-            X  = X[self.fields_used]
+            X = X[self.fields_used]
         X = np.array(X)
         self.fit_log_reg_predictor = self.log_reg_predictor.fit(X, y)
 
@@ -85,12 +89,8 @@ class HeatStrokePredictor(object):
         # logger.debug("Making Logistic Regression prediction with:")
         # print(user_attributes)
 
-        #print(user_attributes)
         X = [[user_attributes[field] for field in self.fields_used]]
         probas = self.fit_log_reg_predictor.predict_proba(X)
-        
-        #logger.debug("Classes: %s" % self.fit_log_reg_predictor.classes_)
-        #logger.debug("LR probas: %s" % probas)
 
         # predict_proba returns a 2D array of the probabilities of X being in the classes
         # with each class given by the columns of the returned array. To make sure that we

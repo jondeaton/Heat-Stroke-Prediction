@@ -54,7 +54,7 @@ class LoopingThread(threading.Timer):
 class LivePlotter(object):
     # Class used to make live plots
 
-    def __init__(self, data_file, output_directory=None, interval=15, show=False):
+    def __init__(self, data_file, output_directory=None, interval=15, show=False, plotly=False):
 
         # Input / Output
         self.data_file = data_file
@@ -64,9 +64,11 @@ class LivePlotter(object):
         self.interval = interval
         self.show_plots = show
         self.looping_thread = LoopingThread(self.update_plot, self.interval)
+        self.image_view_application = "/Applications/Google\ Chrome.app/"
 
     # Thread control
     def start_plotting(self, interval=None):
+        # This function starts the looping thread responsible for updating the plots
 
         # It's a useful feature to be able to adjust interval here
         if interval is not None:
@@ -78,7 +80,6 @@ class LivePlotter(object):
 
     def stop_plotting(self):
         # Close the window and stop the refresh thread
-        plt.close()
         self.looping_thread.stop()
 
     def set_output_directory(self, new_output_directory):
@@ -103,7 +104,6 @@ class LivePlotter(object):
         axis.set_ylabel("Temperature (C)")
         axis.set_xlabel("time")
         axis.legend()
-        axis.set_ylim((30, 60))
         axis.grid(True)
         if save_to is not None:
             figure.savefig(save_to)
@@ -161,6 +161,7 @@ class LivePlotter(object):
         # This function update the plot and should be called periodically by a LoopingThread so that
         # the plot appears to be a live feed of the data coming in
 
+        logger.info("Updating plots...")
         self.df = pd.read_csv(self.data_file)
 
         # Make the combined figure
@@ -193,10 +194,10 @@ class LivePlotter(object):
         self.plot_GSR(combined_fig, ax4)
         plt.savefig(self.combined_file)
 
-        # Finally show it!
+        # Finally show it
         if self.show_plots:
-            os.system("open %s" % self.combined_file)
             logger.info("Opening plot...")
+            os.system("open %s -a %s" % (self.combined_file, self.image_view_application))
 
 def smooth_data(y, x):
     filtered = lowess(y, x, is_sorted=True, frac=0.025, it=0)
@@ -254,6 +255,8 @@ def main():
 
     if args.test:
         logger.warning("The --test flag does nothing.")
+    if args.plotly:
+        logger.warning("Plotly functionality not yet implemented")
 
     run(args)
 

@@ -59,7 +59,7 @@ class LoopingThread(threading.Timer):
 
 class PredictionHandler(object):
 
-    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False, live_plotting=False, show_plots=False):
+    def __init__(self, users_XML="users.xml", username=None, output_dir=None, timestamp_files=False, live_plotting=False, show_plots=False, plotly=False):
 
         # Set all the output files to the appropriate paths
         self.set_output_files(output_dir, timestamp_files)
@@ -79,7 +79,7 @@ class PredictionHandler(object):
         self.live_plotting = live_plotting
         if live_plotting:
             logger.debug("Instantiating LivePlotter....")
-            self.plotter = plotter.LivePlotter(self.data_save_file, output_directory=self.output_dir, show=show_plots)
+            self.plotter = plotter.LivePlotter(self.data_save_file, output_directory=self.output_dir, show=show_plots, plotly=plotly)
             self.plotter.show = show_plots
             logger.debug(emoji.emojize("LivePlotter instantiated :heavy_check_mark:"))
 
@@ -164,7 +164,7 @@ class PredictionHandler(object):
         # using data form the HeatStrokeMonitor instance so that it represents
         # the user's current state. This function will also set the core temperature
         # stream and Heat index stream which are both pandas Series to be updated using
-        # values calcualted by making calls to the HeatStrokePredictor instance.
+        # values calculated by making calls to the HeatStrokePredictor instance.
         
         # Get basic demographic data from MonitorUser
         self.user_attributes = self.user.get_user_attributes()
@@ -211,21 +211,22 @@ class PredictionHandler(object):
             self.user_attributes.set_value('Heat Index (HI)', current_heat_index)
             if verbose: logger.info("Heat Index: %.3f C" % current_heat_index)
 
-        # Set skin temperature to be the average between core temp and environmental
-        self.user_attributes.set_value('Skin Temperature', np.mean([current_temp, current_extimated_CT]))
+            # Set skin temperature to be the average between core temp and environmental
+            self.user_attributes.set_value('Skin Temperature', np.mean([current_temp, current_extimated_CT]))
 
         # We don't have any sensor for this so we're just gonna set it to zero always... yeah caus science
         self.user_attributes.set_value('Exposure to sun', 0)
 
     def make_predictions(self, verbose=True):
-        # This funciton makes a Heat Stroke risk prediction        
+        # This function makes a Heat Stroke risk prediction
 
         # Updates self.user_attributes to have all of the necessary  things to feed to the predictor
         self.update_user_attributes()
 
         # Calculate all risks
-        CT_prob, HI_prob, LR_prob = self.predictor.make_predictions(self.user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream)
-        
+        tup = self.predictor.make_predictions(self.user_attributes, self.monitor.HR_stream, self.monitor.STemp_stream)
+        CT_prob, HI_prob, LR_prob = tup
+
         # Combine the risks into one comprehensive value
         risk = self.predictor.combine_predictions(CT_prob, HI_prob, LR_prob)
 
@@ -239,7 +240,7 @@ class PredictionHandler(object):
         # Log the risk to terminal if verbose
         if verbose:
             logger.info(colored("Core Temp Risk: %s  %s" % (progress_bar(CT_prob), CT_prob), "yellow"))
-            logger.info(colored("Hest Indx Risk: %s  %s" % (progress_bar(HI_prob), HI_prob), "yellow"))
+            logger.info(colored("Heat Idx. Risk: %s  %s" % (progress_bar(HI_prob), HI_prob), "yellow"))
             logger.info(colored("Log. Reg. Risk: %s  %s" % (progress_bar(LR_prob), LR_prob), "yellow"))
             bar = progress_bar(risk, filler=":fire: ", length=10)
             logger.info(colored(emoji.emojize("Current risk: %.4f %s" % (risk, bar)), 'red'))
@@ -251,20 +252,28 @@ class PredictionHandler(object):
         df = self.monitor.get_compiled_df()
         core_temperature_series = self.predictor.estimate_core_temperature(self.monitor.HR_stream, 37.6)
 
-        # The dataframe returned by the monitor not be large enough to hold all of the 
+        # The DataFrame returned by the monitor not be large enough to hold all of the
         # risk series data so we need to make it bigger if necessary
-        longest_risk_series = max(self.risk_series.size, self.CT_risk_series.size,
-                                    self.HI_risk_series.size, self.LR_risk_series.size, core_temperature_series.size)
+        longest_risk_series = max(self.risk_series.size,
+                                  self.CT_risk_series.size,
+                                  self.HI_risk_series.size,
+                                  self.LR_risk_series.size,
+                                  core_temperature_series.size)
 
         num_to_append = longest_risk_series - df.shape[0]
         if num_to_append > 0:
-            # Add a bunch of empty (NAN) values to the dataframe is we need extra space
-            # for the risk vlaues
+            # Add a bunch of empty (NAN) values to the DataFrame is we need extra space for the risk values
             filler = np.empty()
             filler[:] = np.NAN
             df.append(filler)
 
-        # Add the risk/Estimated Core temperature data to the DataFrame
+        # Add the Risk/Heat Index/Estimated Core temperature data to the DataFrame
+        df.loc[range(self.HI_stream.size), "time HI"] = self.HI_stream.keys()
+        df.loc[range(self.HI_stream.size), "HI"] = self.HI_stream.values
+
+        df.loc[range(core_temperature_series.size), "time est CT"] = core_temperature_series.keys()
+        df.loc[range(core_temperature_series.size), "est CT"] = core_temperature_series.values
+
         df.loc[range(self.risk_series.size), "time Risk"] = self.risk_series.keys()
         df.loc[range(self.risk_series.size), "Risk"] = self.risk_series.values
 
@@ -276,9 +285,6 @@ class PredictionHandler(object):
 
         df.loc[range(self.LR_risk_series.size), "time LR Risk"] = self.LR_risk_series.keys()
         df.loc[range(self.LR_risk_series.size), "LR Risk"] = self.LR_risk_series.values
-
-        df.loc[range(core_temperature_series.size), "time est CT"] = core_temperature_series.keys()
-        df.loc[range(core_temperature_series.size), "est CT"] = core_temperature_series.values
 
         # Save the data frame to file! yaas!
         df.to_csv(self.data_save_file)
@@ -334,7 +340,7 @@ def run(args):
     logger.info(emoji.emojize('Running test: %s ...' % __file__ + ' :fire:' * 3))
     logger.debug("Instantiating prediction handler...")
     handler = PredictionHandler(users_XML= args.users_XML, username=args.user, 
-        output_dir=args.output, timestamp_files=args.timestamp_files, live_plotting=args.live_plotting, show_plots=args.show_plots)
+        output_dir=args.output, timestamp_files=args.timestamp_files, live_plotting=args.live_plotting, show_plots=args.show_plots, plotly=args.plotly)
     logger.debug(emoji.emojize("Prediction handler instantiated :heavy_check_mark:"))
 
     # Tell the prediction handler whether or not to use prefiltered data or to refilter it
@@ -393,6 +399,7 @@ def main():
     plotting_group = parser.add_argument_group("Live Plotting")
     plotting_group.add_argument('-plot', '--live-plotting', dest="live_plotting", action="store_true", help="Make plots")
     plotting_group.add_argument('-show', '--show-plots', dest="show_plots", action="store_true", help="Display plots")
+    plotting_group.add_argument('-plotly', '--plotly', action='store_true', help="Use Plotly to display plots")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
