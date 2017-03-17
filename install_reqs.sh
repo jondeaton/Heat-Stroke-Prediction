@@ -9,3 +9,4 @@ pip install meteocalc
 pip install coloredlogs
 pip install emoji
 pip install termcolor
+pip install plotly
