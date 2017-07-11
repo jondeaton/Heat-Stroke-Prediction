@@ -8,28 +8,25 @@ https://github.com/jondeaton/Heat_Stroke_Prediction
 	- Change directory into a location where you want to download
 		(like this: cd <file path>)
 	- type:
-		git clone <URL>
+		git clone <URL>.git
 		(but replace URL with the URL of our repository)
 
-2)The previous command should have made a folder/dicrectory called "Heat_Stroke_Prediction" containing all of our code files. Now you can edit any of the files/code
+2) The previous command should have made a folder/dicrectory called "Heat_Stroke_Prediction" containing all of our code files. Now you can edit any of the files/code
 
 3) To "save" your changes to the repository (called commiting)
 	- while in the project folder/directory (should be named Heat_Stroke_Prediction)
 	  type:
-		git pull origin 
+		git pull 
 		(This will update your project with any changes that others have made while you were making your own changes)
 	- type:
-		git add <a file that you edited>
+		git add <some file that you edited>
 		(This is how you select which files to commit changes to)
-		(GitHub is made to store code so don't add large media files)
 	- type:
-		git commit -m "Put a message here that tells us what you changed"
+		git commit -m "Put a message here that indicates what you changed"
 		(This "commits" your changes)
 	- type: 
-		git push origin master
+		git push
 		(This sends your changes to our github repository)
-
-
 
 
 If you need more help/better understanding you can do this tutorial:
